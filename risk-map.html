@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrisisMap BD &mdash; District Risk Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#f7f6f1;--surface:#fff;--s2:#f2f0eb;--border:#dedad2;--border2:#c8c4bb;
+  --text:#17160e;--sub:#64615a;--muted:#9a9690;
+  --bd-g:#006a4e;--bd-r:#d42638;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 18px rgba(0,0,0,.09);
+  --r:7px;--panel:370px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+
+/* HEADER */
+.hdr{flex-shrink:0;height:52px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--sh);display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:300;}
+.hdr-left{display:flex;align-items:center;gap:9px;}
+.flag{width:26px;height:18px;border-radius:2px;overflow:hidden;border:1px solid var(--border);display:flex;flex-shrink:0;}
+.flag-g{flex:1;background:var(--bd-g);display:flex;align-items:center;justify-content:center;}
+.flag-r{width:9px;height:9px;border-radius:50%;background:var(--bd-r);margin-left:3px;}
+.brand{font-size:15px;font-weight:700;letter-spacing:-.3px;}
+.brand em{font-style:normal;color:var(--bd-r);}
+.hdiv{width:1px;height:16px;background:var(--border);margin:0 10px;}
+.page-sub{font-size:12px;font-weight:600;color:var(--muted);}
+.hdr-right{display:flex;gap:7px;align-items:center;}
+.hbtn{padding:6px 13px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.hbtn:hover{background:var(--s2);color:var(--text);}
+.hbtn-red{background:var(--bd-r);border-color:var(--bd-r);color:#fff;}
+.hbtn-red:hover{background:#b91c2c;}
+
+/* LAYOUT */
+.main{flex:1;display:flex;overflow:hidden;}
+.map-col{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+
+/* Leaflet overrides - light mode */
+.leaflet-container{background:#e8e4dc !important;}
+.leaflet-control-zoom a{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--border) !important;box-shadow:var(--sh) !important;}
+.leaflet-control-attribution{background:rgba(255,255,255,.88) !important;color:var(--muted) !important;font-size:9px !important;}
+
+/* map overlays */
+.map-badge{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);border:1px solid var(--border);border-radius:20px;padding:5px 13px;font-size:11px;font-weight:600;color:var(--sub);backdrop-filter:blur(4px);pointer-events:none;}
+.mode-row{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:500;display:flex;background:rgba(255,255,255,.94);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--sh);}
+.mode-btn{padding:6px 16px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.mode-btn.on{background:var(--bd-r);color:#fff;}
+
+/* popup */
+.leaflet-popup-content-wrapper{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--border) !important;border-radius:9px !important;box-shadow:var(--sh-md) !important;}
+.leaflet-popup-tip{background:var(--surface) !important;}
+.leaflet-popup-close-button{color:var(--muted) !important;}
+.pop{font-family:'DM Sans',sans-serif;min-width:190px;}
+.pop-name{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text);}
+.pop-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.pop-lbl{font-size:11px;color:var(--muted);width:74px;flex-shrink:0;}
+.pop-bg{flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden;}
+.pop-fill{height:100%;border-radius:3px;}
+.pop-val{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:26px;text-align:right;}
+
+/* legend */
+.legend{position:absolute;bottom:18px;right:12px;z-index:500;background:rgba(255,255,255,.96);border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;box-shadow:var(--sh);min-width:164px;}
+.leg-title{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.leg-scale{display:flex;height:9px;border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.leg-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px;}
+.leg-sep{border-top:1px solid var(--border);margin:6px 0;}
+.leg-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px;color:var(--sub);}
+.leg-sw{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+.source-tag{position:absolute;bottom:18px;left:12px;z-index:500;background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:10px;color:var(--muted);pointer-events:none;}
+.source-tag strong{color:var(--sub);}
+
+/* PANEL */
+.panel{width:var(--panel);flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-hdr{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.panel-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.panel-sub{font-size:11px;color:var(--muted);line-height:1.5;}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#15803d;padding:2px 9px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:20px;}
+.blink{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.3s steps(1) infinite;}
+@keyframes blink{50%{opacity:.15;}}
+
+/* detail */
+.detail{margin:10px 14px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:none;}
+.detail.show{display:block;}
+.detail-hdr{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.detail-ico{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.detail-name{font-size:14px;font-weight:700;color:var(--text);}
+.detail-meta{font-size:11px;color:var(--muted);margin-top:1px;}
+.detail-body{padding:11px 14px;display:flex;flex-direction:column;gap:7px;}
+.drow-lbl{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.drow-bar{display:flex;align-items:center;gap:7px;}
+.drow-bg{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+.drow-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.drow-val{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:26px;}
+.detail-close{margin:0 14px 11px;padding:7px;background:var(--surface);border:1px solid var(--border);color:var(--sub);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;width:calc(100% - 28px);transition:all .15s;}
+.detail-close:hover{background:var(--border);}
+
+/* search + list */
+.search-wrap{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;}
+.search-wrap .si{position:absolute;left:24px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;}
+.search-input{width:100%;padding:8px 12px 8px 34px;background:var(--s2);border:1.5px solid var(--border);border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--bd-g);background:var(--surface);}
+.sec-hdr{padding:7px 16px 5px;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);background:var(--s2);border-bottom:1px solid var(--border);}
+.pscroll{flex:1;overflow-y:auto;}
+.pscroll::-webkit-scrollbar{width:3px;}
+.pscroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.di{padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;align-items:center;gap:9px;}
+.di:hover{background:var(--s2);}
+.di.hi{background:#f0fdf4;border-left:3px solid var(--bd-g);}
+.di-rank{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);width:20px;flex-shrink:0;}
+.di-info{flex:1;min-width:0;}
+.di-name{font-size:13px;font-weight:600;color:var(--text);}
+.di-div{font-size:10px;color:var(--muted);}
+.di-bw{width:60px;}
+.di-bg{height:5px;background:var(--s2);border-radius:3px;overflow:hidden;}
+.di-fill{height:100%;border-radius:3px;}
+.di-score{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:26px;text-align:right;}
+
+@media(max-width:820px){.main{flex-direction:column;}.panel{width:100%;height:44vh;border-left:none;border-top:1px solid var(--border);}}
+
+/* ── PIPELINE STATUS BAR ── */
+.pipeline-bar{
+  flex-shrink:0;
+  display:flex; align-items:center; gap:10px;
+  padding:5px 16px; height:32px;
+  font-size:11px; font-weight:600;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background .3s;
+  z-index:200;
+}
+.pipeline-bar.ok      { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+.pipeline-bar.running { background:#fef9c3; color:#a16207; border-color:#fde047; }
+.pipeline-bar.error   { background:#fee2e2; color:#c8192b; border-color:#fca5a5; }
+.pipeline-bar.never   { background:var(--s2); color:var(--muted); }
+.pl-dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.pl-dot.spin { animation: spin .7s linear infinite; border-radius:0; clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.pl-msg  { flex:1; }
+.pl-time { font-family:'DM Mono',monospace; font-size:10px; opacity:.7; }
+.pl-run-btn {
+  padding:3px 10px; border-radius:4px; border:1px solid currentColor;
+  background:transparent; color:inherit; font-family:'DM Sans',sans-serif;
+  font-size:10px; font-weight:700; cursor:pointer; transition:all .15s;
+  opacity:.8;
+}
+.pl-run-btn:hover { opacity:1; }
+
+/* ── BOOST OVERLAY on circle ── */
+.boost-ring { stroke-dasharray: 6 3; animation: dash 1.2s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -18; } }
+
+/* Adjust main body to account for pipeline bar */
+.main { margin-top: 0; }
+
+
+/* ── INFRASTRUCTURE LAYER ── */
+.infra-toggle-row {
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  z-index:500; display:flex; gap:5px;
+  background:rgba(255,255,255,.94); border:1px solid var(--border);
+  border-radius:20px; padding:4px 6px;
+  backdrop-filter:blur(4px); box-shadow:var(--sh);
+}
+.infra-btn {
+  padding:4px 11px; border:none; background:transparent;
+  font-family:'DM Sans',sans-serif; font-size:11px; font-weight:600;
+  color:var(--muted); border-radius:14px; cursor:pointer; transition:all .13s;
+  display:flex; align-items:center; gap:4px;
+}
+.infra-btn.on  { background:var(--bd-g); color:#fff; }
+.infra-btn:hover:not(.on) { background:var(--border); color:var(--text); }
+.infra-loading { font-size:10px; color:var(--muted); padding:4px 10px; }
+
+/* Leaflet infra popup */
+.infra-pop { font-family:'DM Sans',sans-serif; min-width:160px; }
+.infra-pop-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.infra-pop-type  { font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:1px 6px; border-radius:3px; display:inline-block; margin-bottom:4px; }
+.infra-pop-addr  { font-size:11px; color:var(--sub); }
+.infra-pop-phone { font-size:11px; color:var(--bd-g); font-family:'DM Mono',monospace; margin-top:2px; }
+
+
+/* ── PDF DOWNLOAD BUTTON ── */
+.pdf-btn {
+  width: calc(100% - 28px);
+  margin: 0 14px 11px;
+  padding: 10px;
+  background: var(--bd-r);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all .2s;
+}
+.pdf-btn:hover { background: #b91c2c; transform: translateY(-1px); box-shadow: var(--sh-md); }
+.pdf-btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="flag"><div class="flag-g"><div class="flag-r"></div></div></div>
+    <span class="brand">Crisis<em>Map</em> BD</span>
+    <div class="hdiv"></div>
+    <span class="page-sub">&#128506; District Risk Index</span>
+  </div>
+  <div class="hdr-right">
+    <a class="hbtn" href="/">&#128506; Reporter</a>
+    <a class="hbtn" href="/live-disasters">&#127757; Live</a>
+    <a class="hbtn hbtn-red" href="tel:999">&#128222; 999</a>
+  </div>
+</header>
+
+
+<!-- PIPELINE STATUS BAR -->
+<div class="pipeline-bar never" id="pipeline-bar">
+  <div class="pl-dot" id="pl-dot"></div>
+  <div class="pl-msg" id="pl-msg">Risk pipeline: waiting for first run…</div>
+  <div class="pl-time" id="pl-time"></div>
+  <button class="pl-run-btn" onclick="triggerPipeline()">&#9654; Run Now</button>
+</div>
+
+<div class="main">
+  <div class="map-col">
+    <div id="map"></div>
+    <div class="map-badge">&#127463;&#127465; Bangladesh &middot; 64 Districts &middot; INFORM Risk 2022</div>
+    <div class="mode-row">
+      <button class="mode-btn on" onclick="setMode('flood',this)">&#127754; Flood Risk</button>
+      <button class="mode-btn"    onclick="setMode('drought',this)">&#9728; Drought Risk</button>
+      <button class="mode-btn"    onclick="setMode('overall',this)">&#9889; Overall Risk</button>
+    </div>
+    <div class="legend">
+      <div class="leg-title" id="leg-title">Flood Hazard Score</div>
+      <div class="leg-scale" id="leg-scale"></div>
+      <div class="leg-labels"><span>0</span><span>5</span><span>10</span></div>
+      <div class="leg-sep"></div>
+      <div class="leg-row"><div class="leg-sw" style="background:#eff6ff;border:1px solid #ccc"></div>Very Low (0-2)</div>
+      <div class="leg-row"><div class="leg-sw" style="background:#93c5fd"></div>Low (2-4)</div>
+      <div class="leg-row"><div class="leg-sw" style="background:#3b82f6"></div>Medium (4-6)</div>
+      <div class="leg-row"><div class="leg-sw" style="background:#1d4ed8"></div>High (6-8)</div>
+      <div class="leg-row"><div class="leg-sw" style="background:#1e3a8a"></div>Very High (8-10)</div>
+    </div>
+
+    <!-- Infrastructure layer toggles -->
+    <div class="infra-toggle-row" id="infra-toggle-row">
+      <span class="infra-loading" id="infra-loading">Loading infrastructure…</span>
+      <button class="infra-btn" id="btn-hospital" onclick="toggleInfra('hospital',this)" style="display:none">🏥 Hospitals</button>
+    </div>
+
+    <div class="source-tag"><strong>Source:</strong> INFORM Bangladesh 2022 &middot; EU JRC / UN OCHA / MoDMR</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-title">
+        District Risk Rankings
+        <div class="live-badge"><div class="blink"></div><span id="live-lbl">Connecting...</span></div>
+      </div>
+      <div class="panel-sub" id="panel-sub">Flood hazard scores · 64 districts · Click any to highlight</div>
+    </div>
+
+    <div class="detail" id="detail">
+      <div class="detail-hdr">
+        <div class="detail-ico" id="d-ico"></div>
+        <div><div class="detail-name" id="d-name"></div><div class="detail-meta" id="d-meta"></div></div>
+      </div>
+      <div class="detail-body">
+        <div><div class="drow-lbl">&#127754; Flood Hazard</div><div class="drow-bar"><div class="drow-bg"><div class="drow-fill" id="db-fl"></div></div><div class="drow-val" id="dv-fl"></div></div></div>
+        <div><div class="drow-lbl">&#9728; Drought Hazard</div><div class="drow-bar"><div class="drow-bg"><div class="drow-fill" id="db-dr"></div></div><div class="drow-val" id="dv-dr"></div></div></div>
+        <div><div class="drow-lbl">&#9889; Overall Risk</div><div class="drow-bar"><div class="drow-bg"><div class="drow-fill" id="db-ov"></div></div><div class="drow-val" id="dv-ov"></div></div></div>
+        <div><div class="drow-lbl">&#128101; Vulnerability</div><div class="drow-bar"><div class="drow-bg"><div class="drow-fill" id="db-vu"></div></div><div class="drow-val" id="dv-vu"></div></div></div>
+        <div><div class="drow-lbl">&#127973; Lack of Coping</div><div class="drow-bar"><div class="drow-bg"><div class="drow-fill" id="db-cp"></div></div><div class="drow-val" id="dv-cp"></div></div></div>
+      </div>
+      <button class="pdf-btn" id="pdf-btn" onclick="downloadReport()">
+        &#128196; Download PDF Report
+      </button>
+      <button class="detail-close" onclick="closeDetail()">Close &#10005;</button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="si">&#128269;</span>
+      <input class="search-input" id="search" type="text" placeholder="Search district or division..." oninput="handleSearch(this.value)">
+    </div>
+    <div class="sec-hdr" id="sec-hdr">All Districts - Sorted by Risk</div>
+    <div class="pscroll" id="dist-list"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var DIST_DATA = [
+  {n:"Sunamganj",dv:"Sylhet",x0:90.8,y0:24.7,x1:92.3,y1:25.4,fl:8.8,dr:2.0,ov:7.2,vu:7.3,cp:7.5},
+  {n:"Sylhet",dv:"Sylhet",x0:91.6,y0:24.5,x1:92.6,y1:25.2,fl:7.6,dr:2.3,ov:6.3,vu:6.5,cp:6.8},
+  {n:"Moulvibazar",dv:"Sylhet",x0:91.5,y0:24.1,x1:92.4,y1:24.8,fl:7.1,dr:2.6,ov:6.0,vu:6.3,cp:6.7},
+  {n:"Habiganj",dv:"Sylhet",x0:91.0,y0:24.0,x1:91.8,y1:24.8,fl:7.4,dr:2.4,ov:6.2,vu:6.5,cp:6.8},
+  {n:"Netrokona",dv:"Mymensingh",x0:90.4,y0:24.5,x1:91.2,y1:25.2,fl:7.6,dr:2.8,ov:6.4,vu:6.7,cp:7.0},
+  {n:"Mymensingh",dv:"Mymensingh",x0:89.9,y0:24.4,x1:90.8,y1:25.1,fl:7.2,dr:3.0,ov:6.1,vu:6.4,cp:6.7},
+  {n:"Sherpur",dv:"Mymensingh",x0:89.6,y0:24.8,x1:90.4,y1:25.4,fl:7.4,dr:3.1,ov:6.2,vu:6.6,cp:6.9},
+  {n:"Jamalpur",dv:"Mymensingh",x0:89.3,y0:24.6,x1:90.1,y1:25.4,fl:7.8,dr:3.2,ov:6.5,vu:6.8,cp:7.0},
+  {n:"Kishoreganj",dv:"Dhaka",x0:90.3,y0:24.1,x1:91.2,y1:24.8,fl:7.9,dr:2.9,ov:6.6,vu:6.9,cp:7.1},
+  {n:"Brahmanbaria",dv:"Chattogram",x0:90.9,y0:23.6,x1:91.7,y1:24.4,fl:7.2,dr:2.5,ov:6.1,vu:6.4,cp:6.8},
+  {n:"Narsingdi",dv:"Dhaka",x0:90.4,y0:23.7,x1:91.0,y1:24.2,fl:6.5,dr:3.0,ov:5.6,vu:5.9,cp:6.2},
+  {n:"Narayanganj",dv:"Dhaka",x0:90.3,y0:23.4,x1:90.8,y1:23.9,fl:6.2,dr:3.1,ov:5.4,vu:5.6,cp:5.8},
+  {n:"Dhaka",dv:"Dhaka",x0:90.1,y0:23.6,x1:90.8,y1:24.1,fl:5.2,dr:3.2,ov:4.8,vu:4.5,cp:4.9},
+  {n:"Gazipur",dv:"Dhaka",x0:90.1,y0:23.9,x1:90.7,y1:24.4,fl:5.5,dr:3.0,ov:5.0,vu:4.8,cp:5.2},
+  {n:"Manikganj",dv:"Dhaka",x0:89.7,y0:23.6,x1:90.3,y1:24.1,fl:7.3,dr:3.1,ov:6.1,vu:6.5,cp:6.8},
+  {n:"Munshiganj",dv:"Dhaka",x0:90.3,y0:23.2,x1:90.8,y1:23.7,fl:6.8,dr:3.0,ov:5.9,vu:6.2,cp:6.6},
+  {n:"Tangail",dv:"Dhaka",x0:89.6,y0:24.0,x1:90.4,y1:24.6,fl:7.1,dr:3.3,ov:6.0,vu:6.3,cp:6.6},
+  {n:"Rajbari",dv:"Dhaka",x0:89.3,y0:23.4,x1:89.9,y1:23.9,fl:7.4,dr:3.4,ov:6.2,vu:6.6,cp:6.8},
+  {n:"Faridpur",dv:"Dhaka",x0:89.5,y0:23.1,x1:90.2,y1:23.7,fl:7.5,dr:3.5,ov:6.3,vu:6.6,cp:6.9},
+  {n:"Madaripur",dv:"Dhaka",x0:89.9,y0:22.8,x1:90.5,y1:23.4,fl:7.6,dr:2.7,ov:6.3,vu:6.7,cp:6.9},
+  {n:"Shariatpur",dv:"Dhaka",x0:90.2,y0:23.0,x1:90.8,y1:23.5,fl:7.8,dr:2.6,ov:6.5,vu:6.8,cp:7.0},
+  {n:"Gopalganj",dv:"Dhaka",x0:89.7,y0:22.7,x1:90.2,y1:23.2,fl:7.7,dr:2.8,ov:6.4,vu:6.8,cp:7.0},
+  {n:"Chandpur",dv:"Chattogram",x0:90.6,y0:23.0,x1:91.1,y1:23.6,fl:7.4,dr:2.3,ov:6.2,vu:6.6,cp:6.9},
+  {n:"Lakshmipur",dv:"Chattogram",x0:90.7,y0:22.7,x1:91.2,y1:23.3,fl:7.6,dr:2.2,ov:6.3,vu:6.7,cp:7.0},
+  {n:"Cumilla",dv:"Chattogram",x0:90.9,y0:23.3,x1:91.6,y1:24.0,fl:6.8,dr:2.7,ov:5.9,vu:6.1,cp:6.5},
+  {n:"Feni",dv:"Chattogram",x0:91.2,y0:22.9,x1:91.7,y1:23.3,fl:6.5,dr:2.5,ov:5.7,vu:6.0,cp:6.4},
+  {n:"Noakhali",dv:"Chattogram",x0:90.9,y0:22.5,x1:91.5,y1:23.2,fl:7.8,dr:2.1,ov:6.5,vu:6.9,cp:7.2},
+  {n:"Chattogram",dv:"Chattogram",x0:91.5,y0:22.1,x1:92.1,y1:22.8,fl:5.8,dr:2.6,ov:5.5,vu:5.2,cp:5.6},
+  {n:"Cox's Bazar",dv:"Chattogram",x0:91.7,y0:21.1,x1:92.4,y1:22.1,fl:6.2,dr:2.4,ov:6.5,vu:7.0,cp:7.6},
+  {n:"Rangamati",dv:"Chattogram",x0:91.8,y0:22.3,x1:92.7,y1:23.4,fl:5.2,dr:3.0,ov:5.9,vu:6.5,cp:7.6},
+  {n:"Khagrachhari",dv:"Chattogram",x0:91.6,y0:22.9,x1:92.5,y1:23.8,fl:5.3,dr:3.1,ov:5.9,vu:6.6,cp:7.7},
+  {n:"Bandarban",dv:"Chattogram",x0:92.0,y0:21.4,x1:92.7,y1:22.5,fl:5.1,dr:2.8,ov:5.8,vu:6.5,cp:7.8},
+  {n:"Bogura",dv:"Rajshahi",x0:88.9,y0:24.5,x1:89.6,y1:25.2,fl:6.8,dr:4.8,ov:5.9,vu:6.2,cp:6.5},
+  {n:"Sirajganj",dv:"Rajshahi",x0:89.3,y0:24.0,x1:89.9,y1:24.7,fl:8.6,dr:3.8,ov:7.0,vu:7.2,cp:7.4},
+  {n:"Natore",dv:"Rajshahi",x0:88.7,y0:24.1,x1:89.4,y1:24.7,fl:6.2,dr:5.9,ov:5.8,vu:6.1,cp:6.3},
+  {n:"Pabna",dv:"Rajshahi",x0:89.0,y0:23.7,x1:89.7,y1:24.2,fl:7.0,dr:4.9,ov:6.1,vu:6.4,cp:6.6},
+  {n:"Naogaon",dv:"Rajshahi",x0:88.4,y0:24.4,x1:89.2,y1:25.1,fl:5.5,dr:6.8,ov:5.9,vu:6.2,cp:6.4},
+  {n:"Rajshahi",dv:"Rajshahi",x0:88.1,y0:24.1,x1:88.9,y1:24.6,fl:4.8,dr:7.4,ov:5.8,vu:6.0,cp:6.2},
+  {n:"Chapai Nawabganj",dv:"Rajshahi",x0:87.9,y0:24.4,x1:88.6,y1:24.9,fl:5.1,dr:7.2,ov:6.0,vu:6.3,cp:6.5},
+  {n:"Joypurhat",dv:"Rajshahi",x0:88.9,y0:24.9,x1:89.5,y1:25.4,fl:5.8,dr:5.6,ov:5.6,vu:5.9,cp:6.2},
+  {n:"Kushtia",dv:"Khulna",x0:88.7,y0:23.5,x1:89.3,y1:24.0,fl:5.6,dr:6.5,ov:5.9,vu:6.2,cp:6.4},
+  {n:"Chuadanga",dv:"Khulna",x0:88.5,y0:23.4,x1:89.1,y1:23.9,fl:4.2,dr:6.8,ov:5.8,vu:6.1,cp:6.4},
+  {n:"Meherpur",dv:"Khulna",x0:88.4,y0:23.5,x1:88.8,y1:23.9,fl:4.5,dr:6.9,ov:5.8,vu:6.1,cp:6.3},
+  {n:"Jhenaidah",dv:"Khulna",x0:88.8,y0:23.0,x1:89.4,y1:23.6,fl:4.8,dr:6.2,ov:5.5,vu:5.9,cp:6.1},
+  {n:"Magura",dv:"Khulna",x0:89.3,y0:23.1,x1:89.7,y1:23.5,fl:5.9,dr:5.4,ov:5.7,vu:6.0,cp:6.3},
+  {n:"Jashore",dv:"Khulna",x0:88.9,y0:22.8,x1:89.5,y1:23.4,fl:5.5,dr:5.9,ov:5.6,vu:5.8,cp:6.0},
+  {n:"Narail",dv:"Khulna",x0:89.3,y0:22.8,x1:89.7,y1:23.2,fl:6.8,dr:4.1,ov:5.9,vu:6.2,cp:6.5},
+  {n:"Khulna",dv:"Khulna",x0:89.2,y0:22.3,x1:89.7,y1:22.9,fl:7.2,dr:3.8,ov:6.1,vu:6.3,cp:6.6},
+  {n:"Satkhira",dv:"Khulna",x0:88.8,y0:22.1,x1:89.3,y1:22.8,fl:7.9,dr:3.5,ov:6.6,vu:6.9,cp:7.1},
+  {n:"Bagerhat",dv:"Khulna",x0:89.4,y0:22.3,x1:89.9,y1:22.9,fl:8.1,dr:3.6,ov:6.8,vu:7.0,cp:7.2},
+  {n:"Kurigram",dv:"Rangpur",x0:89.3,y0:25.5,x1:89.9,y1:26.0,fl:8.7,dr:3.4,ov:7.1,vu:7.4,cp:7.6},
+  {n:"Lalmonirhat",dv:"Rangpur",x0:89.1,y0:25.6,x1:89.6,y1:26.1,fl:8.1,dr:3.5,ov:6.7,vu:7.0,cp:7.2},
+  {n:"Nilphamari",dv:"Rangpur",x0:88.6,y0:25.7,x1:89.2,y1:26.2,fl:7.2,dr:4.0,ov:6.2,vu:6.5,cp:6.8},
+  {n:"Rangpur",dv:"Rangpur",x0:88.9,y0:25.4,x1:89.6,y1:25.9,fl:7.6,dr:4.1,ov:6.4,vu:6.7,cp:6.9},
+  {n:"Gaibandha",dv:"Rangpur",x0:89.3,y0:25.1,x1:89.8,y1:25.6,fl:8.4,dr:3.6,ov:6.9,vu:7.1,cp:7.3},
+  {n:"Dinajpur",dv:"Rangpur",x0:88.3,y0:25.5,x1:89.0,y1:26.2,fl:5.9,dr:5.2,ov:5.7,vu:6.0,cp:6.3},
+  {n:"Panchagarh",dv:"Rangpur",x0:88.3,y0:26.1,x1:88.8,y1:26.6,fl:6.2,dr:4.5,ov:5.8,vu:6.1,cp:6.4},
+  {n:"Thakurgaon",dv:"Rangpur",x0:88.2,y0:25.9,x1:88.7,y1:26.3,fl:6.5,dr:4.8,ov:5.9,vu:6.2,cp:6.5},
+  {n:"Bhola",dv:"Barisal",x0:90.5,y0:22.2,x1:91.2,y1:22.9,fl:8.5,dr:1.6,ov:6.9,vu:7.3,cp:7.2},
+  {n:"Patuakhali",dv:"Barisal",x0:90.1,y0:21.9,x1:90.8,y1:22.5,fl:8.3,dr:1.9,ov:6.8,vu:7.2,cp:7.3},
+  {n:"Barguna",dv:"Barisal",x0:89.8,y0:21.8,x1:90.4,y1:22.3,fl:8.2,dr:1.8,ov:6.7,vu:7.1,cp:7.4},
+  {n:"Pirojpur",dv:"Barisal",x0:89.8,y0:22.3,x1:90.2,y1:22.8,fl:7.9,dr:2.2,ov:6.5,vu:6.9,cp:7.1},
+  {n:"Barisal",dv:"Barisal",x0:90.1,y0:22.4,x1:90.6,y1:22.9,fl:7.8,dr:2.1,ov:6.4,vu:6.8,cp:7.1},
+  {n:"Jhalokathi",dv:"Barisal",x0:90.0,y0:22.4,x1:90.4,y1:22.7,fl:7.6,dr:2.0,ov:6.3,vu:6.7,cp:7.0},
+];
+
+/* ─── COLOUR HELPERS ─────────────────── */
+var SCALES = {
+  flood:   [[0,"#eff6ff"],[2,"#bfdbfe"],[4,"#60a5fa"],[6,"#2563eb"],[8,"#1e3a8a"],[10,"#0f172a"]],
+  drought: [[0,"#fefce8"],[2,"#fef08a"],[4,"#facc15"],[6,"#d97706"],[8,"#92400e"],[10,"#451a03"]],
+  overall: [[0,"#fff7ed"],[2,"#fed7aa"],[4,"#fb923c"],[6,"#dc2626"],[8,"#991b1b"],[10,"#450a0a"]]
+};
+function scoreColor(val, m) {
+  var s = SCALES[m];
+  for (var i = 1; i < s.length; i++) {
+    if (val <= s[i][0]) {
+      var t = (val - s[i-1][0]) / (s[i][0] - s[i-1][0]);
+      return lerpHex(s[i-1][1], s[i][1], t);
+    }
+  }
+  return s[s.length-1][1];
+}
+function lerpHex(a, b, t) {
+  var ah = parseInt(a.slice(1),16), bh = parseInt(b.slice(1),16);
+  var r = Math.round(((ah>>16)&255) + (((bh>>16)&255)-((ah>>16)&255))*t);
+  var g = Math.round(((ah>>8)&255)  + (((bh>>8)&255) -((ah>>8)&255))*t);
+  var bl= Math.round((ah&255)       + ((bh&255)-(ah&255))*t);
+  return "#"+((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1);
+}
+
+/* ─── STATE ──────────────────────────── */
+var map, socket;
+var markers = {};           // L.circle per district
+var mode = "flood";
+var selName = null;
+var BY_NAME = {};
+DIST_DATA.forEach(function(d){ BY_NAME[d.n] = d; });
+
+/* ─── BOOT ───────────────────────────── */
+// Scripts load synchronously in order so by the time this
+// inline block runs, both Leaflet and Socket.io are ready.
+window.addEventListener('load', function() {
+  initMap();
+  initSocket();
+  buildLegend();
+  drawDistricts();
+  renderList(DIST_DATA);
+  loadInfrastructure();
+});
+
+/* ─── MAP (same pattern as reporter) ─── */
+function initMap() {
+  map = L.map("map", {
+    center: [23.5, 90.35],
+    zoom: 8,
+    minZoom: 7,
+    maxZoom: 13,
+    maxBounds: [[19.8, 87.8], [26.8, 93.0]]
+  });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "\u00a9 OpenStreetMap contributors",
+    maxZoom: 18
+  }).addTo(map);
+}
+
+/* ─── DRAW DISTRICTS AS CIRCLES ─────── */
+// Each district = a circle marker at its centroid, sized by score
+// Colour = risk score for the active mode
+function drawDistricts() {
+  Object.values(markers).forEach(function(m){ map.removeLayer(m); });
+  markers = {};
+  var key = keyOf();
+  DIST_DATA.forEach(function(d) {
+    var val  = d[key];
+    var col  = scoreColor(val, mode);
+    var lat  = (d.y0 + d.y1) / 2;
+    var lng  = (d.x0 + d.x1) / 2;
+    var r    = 5000 + (val / 10) * 9000;
+    var circle = L.circle([lat, lng], {
+      radius:r, color:'#fff', fillColor:col, fillOpacity:0.82, weight:1, opacity:0.6
+    }).addTo(map);
+    circle.bindPopup(makePopup(d));
+    circle.on("click", function() { selectDistrict(d.n, true); });
+    markers[d.n] = circle;
+  });
+  if (selName && markers[selName]) {
+    markers[selName].setStyle({ color:"#111", weight:3, fillOpacity:0.95 });
+  }
+}
+
+function makePopup(d) {
+  var fc = scoreColor(d.fl,"flood"), dc = scoreColor(d.dr,"drought"), oc = scoreColor(d.ov,"overall");
+  return "<div class='pop'>" +
+    "<div class='pop-name'>"+d.n+"</div><div style='font-size:11px;color:var(--muted);margin-bottom:6px'>"+d.dv+" Division</div>" +
+    popRow("&#127754; Flood",  d.fl, fc) +
+    popRow("&#9728; Drought",  d.dr, dc) +
+    popRow("&#9889; Overall",  d.ov, oc) +
+    "</div>";
+}
+function popRow(lbl, val, col) {
+  return "<div class='pop-row'>" +
+    "<div class='pop-lbl'>"+lbl+"</div>" +
+    "<div class='pop-bg'><div class='pop-fill' style='width:"+(val/10*100).toFixed(0)+"%;background:"+col+"'></div></div>" +
+    "<div class='pop-val' style='color:"+col+"'>"+val.toFixed(1)+"</div>" +
+    "</div>";
+}
+
+/* ─── SELECT DISTRICT ────────────────── */
+function selectDistrict(name, broadcast) {
+  selName = name;
+  var d = BY_NAME[name];
+  if (!d) return;
+
+  var key = keyOf();
+  Object.keys(markers).forEach(function(n) {
+    if (!markers[n] || !BY_NAME[n]) return;
+    var v = BY_NAME[n][key];
+    markers[n].setStyle({ color:'#fff', fillColor:scoreColor(v,mode), weight:1, fillOpacity:0.82 });
+  });
+  if (markers[name]) { markers[name].setStyle({ color:"#111", weight:3.5, fillOpacity:0.95 }); }
+  if (map) { map.setView([(d.y0+d.y1)/2, (d.x0+d.x1)/2], 9, { animate:true }); }
+  if (markers[name] && map) { setTimeout(function(){ markers[name].openPopup(); }, 350); }
+
+  showDetail(d);
+  highlightList(name);
+
+  if (broadcast && socket && socket.connected) {
+    socket.emit("risk:search", { name: name });
+  }
+}
+
+/* ─── DETAIL PANEL ───────────────────── */
+function showDetail(d) {
+  document.getElementById("d-name").textContent = d.n;
+  document.getElementById("d-meta").textContent = d.dv + " Division";
+  var col = scoreColor(d[keyOf()], mode);
+  var ico = document.getElementById("d-ico");
+  ico.style.background = col + "33";
+  ico.textContent = mode==="flood" ? "&#127754;" : mode==="drought" ? "&#9728;" : "&#9889;";
+  ico.innerHTML   = mode==="flood" ? "&#127754;" : mode==="drought" ? "&#9728;" : "&#9889;";
+  setBar("fl", d.fl, scoreColor(d.fl,"flood"));
+  setBar("dr", d.dr, scoreColor(d.dr,"drought"));
+  setBar("ov", d.ov, scoreColor(d.ov,"overall"));
+  setBar("vu", d.vu, "#6d28d9");
+  setBar("cp", d.cp, "#0e7490");
+  document.getElementById("detail").classList.add("show");
+  document.querySelector(".pscroll").scrollTop = 0;
+}
+function setBar(k, v, c) {
+  document.getElementById("db-"+k).style.width      = (v/10*100).toFixed(0)+"%";
+  document.getElementById("db-"+k).style.background = c;
+  document.getElementById("dv-"+k).textContent       = v.toFixed(1);
+  document.getElementById("dv-"+k).style.color       = c;
+}
+function closeDetail() {
+  selName = null;
+  document.getElementById("detail").classList.remove("show");
+  var key = keyOf();
+  Object.keys(markers).forEach(function(n) {
+    if (!markers[n] || !BY_NAME[n]) return;
+    var v = BY_NAME[n][key];
+    markers[n].setStyle({ color:scoreColor(v,mode), weight:1.5, fillOpacity:0.72 });
+  });
+  document.querySelectorAll(".di").forEach(function(el){ el.classList.remove("hi"); });
+}
+
+/* ─── MODE SWITCH ────────────────────── */
+function setMode(m, btn) {
+  mode = m;
+  document.querySelectorAll(".mode-btn").forEach(function(b){ b.classList.remove("on"); });
+  btn.classList.add("on");
+  var titles = { flood:"Flood Hazard Score", drought:"Drought Hazard Score", overall:"Overall INFORM Risk" };
+  document.getElementById("leg-title").textContent = titles[m];
+  document.getElementById("panel-sub").textContent = titles[m] + " · 64 districts · Click to highlight";
+  buildLegend();
+  drawDistricts();
+  renderList(getFiltered());
+}
+
+/* ─── LEGEND ─────────────────────────── */
+function buildLegend() {
+  var sc = document.getElementById("leg-scale"), n=20, h="";
+  for (var i=0;i<n;i++) h += "<div style='flex:1;background:"+scoreColor(i/(n-1)*10,mode)+"'></div>";
+  sc.innerHTML = h;
+}
+
+/* ─── LIST ───────────────────────────── */
+function renderList(data) {
+  var list = document.getElementById("dist-list");
+  var k = keyOf();
+  var sorted = data.slice().sort(function(a,b){ return b[k]-a[k]; });
+  document.getElementById("sec-hdr").textContent =
+    data.length < DIST_DATA.length ? "Results (" + data.length + " districts)" : "All Districts - Sorted by Risk";
+  list.innerHTML = "";
+  sorted.forEach(function(d, i) {
+    var v = d[k], col = scoreColor(v, mode);
+    var el = document.createElement("div");
+    el.className = "di" + (selName===d.n ? " hi" : "");
+    el.dataset.name = d.n;
+    el.innerHTML =
+      "<div class='di-rank'>"+(i+1)+"</div>"+
+      "<div class='di-info'><div class='di-name'>"+d.n+"</div><div class='di-div'>"+d.dv+"</div></div>"+
+      "<div class='di-bw'><div class='di-bg'><div class='di-fill' style='width:"+(v/10*100).toFixed(0)+"%;background:"+col+"'></div></div></div>"+
+      "<div class='di-score' style='color:"+col+"'>"+v.toFixed(1)+"</div>";
+    el.addEventListener("click", function(){ selectDistrict(d.n, true); });
+    list.appendChild(el);
+  });
+}
+function highlightList(name) {
+  document.querySelectorAll(".di").forEach(function(el){ el.classList.toggle("hi", el.dataset.name===name); });
+  var el = document.querySelector(".di[data-name='"+name+"']");
+  if (el) el.scrollIntoView({ behavior:"smooth", block:"nearest" });
+}
+function getFiltered() {
+  var q = document.getElementById("search").value.trim().toLowerCase();
+  if (!q) return DIST_DATA;
+  return DIST_DATA.filter(function(d){ return d.n.toLowerCase().includes(q) || d.dv.toLowerCase().includes(q); });
+}
+function handleSearch(v) {
+  var f = getFiltered();
+  renderList(f);
+  if (f.length === 1) { selectDistrict(f[0].n, true); return; }
+  var exact = f.find(function(d){ return d.n.toLowerCase() === v.toLowerCase(); });
+  if (exact) selectDistrict(exact.n, true);
+}
+function keyOf(){ return mode==="flood"?"fl":mode==="drought"?"dr":"ov"; }
+
+/* ─── SOCKET.IO ──────────────────────── */
+function initSocket() {
+  try {
+    socket = io();
+    socket.on("connect",    function(){ document.getElementById("live-lbl").textContent = "Live"; });
+    socket.on("disconnect", function(){ document.getElementById("live-lbl").textContent = "Offline"; });
+    socket.on("risk:search",function(data){ if (data.name !== selName) selectDistrict(data.name, false); });
+  } catch(e) {
+    document.getElementById("live-lbl").textContent = "—";
+  }
+}
+/* ═══════════════════════════════════════
+   PIPELINE — Live Risk Boost System
+   Receives computed boosts from server
+   and overlays them on the INFORM baseline
+═══════════════════════════════════════ */
+var boostMarkers = {};    // dashed ring markers for boosted districts
+var currentBoosts = {};   // latest boosts from server
+
+/* Called by socket on pipeline:update */
+function applyBoosts(data) {
+  currentBoosts = data.boosts || {};
+
+  // Remove old boost rings
+  Object.values(boostMarkers).forEach(function(m){ if(map) map.removeLayer(m); });
+  boostMarkers = {};
+
+  // Draw a dashed ring for every boosted district
+  Object.keys(currentBoosts).forEach(function(name) {
+    var d  = BY_NAME[name];
+    var b  = currentBoosts[name];
+    if (!d || !b) return;
+
+    var key    = keyOf();
+    var boost  = b[key] || 0;
+    if (boost < 0.3) return;  // skip negligible boosts
+
+    var lat = (d.y0 + d.y1) / 2;
+    var lng = (d.x0 + d.x1) / 2;
+    var baseRadius = 5000 + (d[key] / 10) * 9000;
+    var ringRadius = baseRadius + 4000 + boost * 1500;
+
+    var evLines = (b.events||[]).slice(0,3).map(function(e){
+      return (e.source==='gdacs'?'&#9679; GDACS: ':'&#9733; Reported: ') + e.title.slice(0,50);
+    }).join('<br>');
+    var ring = L.circle([lat, lng], {
+      radius:ringRadius, color:boost>=2.5?'#dc2626':boost>=1.5?'#d97706':'#ca8a04',
+      fillColor:'transparent', fillOpacity:0, weight:2, opacity:0.85, dashArray:'6 4', className:'boost-ring',
+    }).addTo(map);
+    ring.bindTooltip('<div style="font-family:DM Sans,sans-serif;min-width:180px"><strong style="font-size:13px">'+name+' — Live Alert</strong><br><span style="color:#c8192b;font-size:11px">+'+boost.toFixed(1)+' boost from '+(b.events||[]).length+' active event(s)</span>'+(evLines?'<hr style="margin:5px 0;border-color:#eee"><div style="font-size:10px;color:#666">'+evLines+'</div>':'')+' </div>',{sticky:true});
+    boostMarkers[name] = ring;
+  });
+
+  // Update pipeline bar
+  updatePipelineBar(data);
+
+  // Update list badges
+  renderList(getFiltered());
+}
+
+function updatePipelineBar(data) {
+  var bar  = document.getElementById('pipeline-bar');
+  var dot  = document.getElementById('pl-dot');
+  var msg  = document.getElementById('pl-msg');
+  var time = document.getElementById('pl-time');
+
+  bar.className = 'pipeline-bar ' + (data.status || 'never');
+  dot.className = 'pl-dot' + (data.status === 'running' ? ' spin' : '');
+
+  var boostedCount = Object.keys(data.boosts || {}).length;
+  var msgs = {
+    ok:      '&#9989; Pipeline OK — ' + (data.eventCount||0) + ' GDACS events · ' + boostedCount + ' districts boosted',
+    running: '&#9203; Pipeline running…',
+    error:   '&#9888; Pipeline error — using baseline scores only',
+    never:   '&#9209; Pipeline not yet run',
+  };
+  msg.innerHTML = msgs[data.status] || msgs.never;
+  if (data.lastRun) {
+    var d = new Date(data.lastRun);
+    time.textContent = 'Last run: ' + d.toLocaleTimeString();
+  }
+}
+
+function triggerPipeline() {
+  if (socket && socket.connected) {
+    socket.emit('pipeline:run');
+    document.getElementById('pl-msg').textContent = 'Pipeline triggered…';
+    document.getElementById('pipeline-bar').className = 'pipeline-bar running';
+  }
+}
+
+/* Override renderList to show boost badges */
+var _origRenderList = renderList;
+renderList = function(data) {
+  _origRenderList(data);
+  // Add live boost badges to items
+  var key = keyOf();
+  document.querySelectorAll('.di').forEach(function(el) {
+    var name  = el.dataset.name;
+    var boost = currentBoosts[name] && currentBoosts[name][key];
+    if (!boost || boost < 0.3) return;
+    // Check if badge already exists
+    if (el.querySelector('.boost-badge')) return;
+    var badge = document.createElement('span');
+    badge.className = 'boost-badge';
+    badge.title = 'Live boost from active events';
+    badge.style.cssText = 'margin-left:4px;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;letter-spacing:.3px;' +
+      (boost>=2.5 ? 'background:#fee2e2;color:#c8192b' : boost>=1.5 ? 'background:#fff3e0;color:#c96a00' : 'background:#fefce8;color:#a16207');
+    badge.textContent = '+' + boost.toFixed(1) + ' live';
+    var nameEl = el.querySelector('.di-name');
+    if (nameEl) nameEl.appendChild(badge);
+  });
+};
+
+/* Hook pipeline events into socket init */
+var _origInitSocket = initSocket;
+initSocket = function() {
+  _origInitSocket();
+  if (!socket) return;
+  socket.on('pipeline:update', function(data) {
+    applyBoosts(data);
+  });
+  socket.on('pipeline:status', function(data) {
+    updatePipelineBar(data);
+  });
+};
+
+/* ═══════════════════════════════════════
+   INFRASTRUCTURE LAYER
+   Fetches hospitals, shelters, schools
+   from OpenStreetMap via Overpass API
+   (server-side cached, no CORS issues)
+═══════════════════════════════════════ */
+var infraFeatures   = [];
+var infraMarkers    = { hospital:[], shelter:[], school:[] };
+var infraVisible    = { hospital:false, shelter:false, school:false };
+var infraLoaded     = false;
+
+var INFRA_COLORS = {
+  hospital: { bg:'#fee2e2', border:'#f87171', text:'#c8192b' },
+  clinic:   { bg:'#fee2e2', border:'#f87171', text:'#c8192b' },
+  shelter:  { bg:'#dcfce7', border:'#4ade80', text:'#15803d' },
+  school:   { bg:'#dbeafe', border:'#60a5fa', text:'#1d4ed8' },
+};
+
+function loadInfrastructure() {
+  fetch('/api/infrastructure')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (!data.ok) throw new Error(data.error || 'Failed');
+      infraFeatures = data.features || [];
+      infraLoaded   = true;
+
+      // Show buttons, hide loading
+      document.getElementById('infra-loading').style.display = 'none';
+      var btn = document.getElementById('btn-hospital');
+      if (btn) btn.style.display = '';
+
+      var counts = { hospital:0, shelter:0, school:0 };
+      infraFeatures.forEach(function(f){
+        var t = f.type === 'clinic' ? 'hospital' : f.type;
+        if (counts[t] !== undefined) counts[t]++;
+      });
+      document.getElementById('btn-hospital').innerHTML = '🏥 Hospitals <span style="opacity:.6;font-size:10px">('+counts.hospital+')</span>';
+
+      console.log('[Infra] Loaded', infraFeatures.length, 'features');
+    })
+    .catch(function(err) {
+      document.getElementById('infra-loading').textContent = 'Infrastructure unavailable';
+      console.warn('[Infra] Error:', err.message);
+    });
+}
+
+function toggleInfra(type, btn) {
+  if (!infraLoaded) return;
+  infraVisible[type] = !infraVisible[type];
+  btn.classList.toggle('on', infraVisible[type]);
+
+  if (infraVisible[type]) {
+    showInfraLayer(type);
+  } else {
+    hideInfraLayer(type);
+  }
+}
+
+function showInfraLayer(type) {
+  hideInfraLayer(type); // clear first
+  var col = INFRA_COLORS[type] || INFRA_COLORS.hospital;
+
+  infraFeatures.forEach(function(f) {
+    var ftype = f.type === 'clinic' ? 'hospital' : f.type;
+    if (ftype !== type) return;
+
+    var icon = L.divIcon({
+      className: '',
+      html: '<div style="width:22px;height:22px;border-radius:50%;background:' + col.bg +
+            ';border:2px solid ' + col.border + ';display:flex;align-items:center;' +
+            'justify-content:center;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,.2)">' +
+            f.icon + '</div>',
+      iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-14],
+    });
+    var infraEl = document.createElement("div");
+    infraEl.innerHTML = icon.options.html;
+    var m = L.marker([f.lat, f.lng], { icon: L.divIcon({ className:'', html: infraEl.innerHTML, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-14] }), zIndexOffset:200 }).addTo(map);
+    m.bindPopup(
+      '<div class="infra-pop">' +
+      '<div class="infra-pop-title">' + f.icon + ' ' + esc(f.name) + '</div>' +
+      '<span class="infra-pop-type" style="background:'+col.bg+';color:'+col.text+'">' + f.type.toUpperCase() + '</span>' +
+      (f.addr  ? '<div class="infra-pop-addr">📍 ' + esc(f.addr) + '</div>' : '') +
+      (f.phone ? '<div class="infra-pop-phone">📞 ' + esc(f.phone) + '</div>' : '') +
+      '</div>'
+    );
+    infraMarkers[type].push(m);
+  });
+}
+
+function hideInfraLayer(type) {
+  infraMarkers[type].forEach(function(m){ map.removeLayer(m); });
+  infraMarkers[type] = [];
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ═══════════════════════════════════════
+   PDF REPORT DOWNLOAD
+   Collects district data + nearby infra
+   + active boosts, POSTs to /api/report,
+   triggers browser download.
+═══════════════════════════════════════ */
+function downloadReport() {
+  var d = BY_NAME[selName];
+  if (!d) return;
+
+  var btn = document.getElementById('pdf-btn');
+  btn.disabled = true;
+  btn.innerHTML = '&#9203; Generating PDF…';
+
+  var boostData = currentBoosts[selName] || { flood:0, drought:0, overall:0, events:[] };
+
+  // Collect nearby infrastructure (hospitals within the district bbox)
+  var nearby = [];
+  if (typeof infraFeatures !== 'undefined') {
+    infraFeatures.forEach(function(f) {
+      if (f.lat >= d.y0 && f.lat <= d.y1 && f.lng >= d.x0 && f.lng <= d.x1) {
+        nearby.push(f);
+      }
+    });
+  }
+
+  var payload = {
+    district:    d.n,
+    division:    d.dv,
+    scores:      { fl:d.fl, dr:d.dr, ov:d.ov, vu:d.vu, cp:d.cp },
+    boosts:      { flood:boostData.flood||0, drought:boostData.drought||0, overall:boostData.overall||0 },
+    events:      boostData.events || [],
+    infraNearby: nearby.slice(0, 12),
+  };
+
+  fetch('/api/report', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload),
+  })
+  .then(function(res) {
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    return res.blob();
+  })
+  .then(function(blob) {
+    var url  = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href     = url;
+    link.download = 'CrisisMap_' + d.n.replace(/[^a-zA-Z0-9]/g,'_') + '_Risk_Report.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    btn.disabled = false;
+    btn.innerHTML = '&#128196; Download PDF Report';
+  })
+  .catch(function(err) {
+    console.error('[PDF]', err);
+    btn.disabled = false;
+    btn.innerHTML = '&#9888; Failed — Try Again';
+    setTimeout(function(){ btn.innerHTML = '&#128196; Download PDF Report'; }, 3000);
+  });
+}
+
+</script>
+</body>
+</html>

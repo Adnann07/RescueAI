@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrisisMap BD — Reporter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:       #f7f6f2;
+  --surface:  #ffffff;
+  --s2:       #f1efeb;
+  --s3:       #e8e5df;
+  --border:   #e0ddd6;
+  --border2:  #c9c6be;
+  --text:     #18170f;
+  --sub:      #68655e;
+  --muted:    #9c9890;
+  --bd-g:     #006a4e;
+  --bd-r:     #d42638;
+  --sev-c:    #c8192b;
+  --sev-h:    #c96a00;
+  --sev-m:    #a16207;
+  --sev-l:    #1a7c3e;
+  --sh:       0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+  --sh-md:    0 4px 16px rgba(0,0,0,.09);
+  --r:        7px;
+  --panel:    370px;
+}
+html, body { height:100%; overflow:hidden; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); display:flex; flex-direction:column; }
+
+/* ── JOIN OVERLAY ─────────────────────────── */
+#join-overlay {
+  position:fixed; inset:0; z-index:9000;
+  background:rgba(247,246,242,.96); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+}
+.join-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:38px 34px; width:400px;
+  display:flex; flex-direction:column; gap:22px;
+  box-shadow:var(--sh-md);
+}
+.join-brand { display:flex; align-items:center; gap:10px; }
+.jflag { width:30px; height:21px; border-radius:3px; overflow:hidden; border:1px solid var(--border); display:flex; flex-shrink:0; }
+.jflag-g { flex:1; background:var(--bd-g); display:flex; align-items:center; justify-content:center; }
+.jflag-r { width:11px; height:11px; border-radius:50%; background:var(--bd-r); margin-left:3px; }
+.join-brand h1 { font-size:17px; font-weight:700; letter-spacing:-.3px; }
+.join-brand h1 em { font-style:normal; color:var(--bd-r); }
+.join-desc { font-size:13px; color:var(--sub); line-height:1.65; }
+.jlabel { font-size:11px; font-weight:600; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+.jinput {
+  width:100%; background:var(--s2); border:1.5px solid var(--border);
+  color:var(--text); padding:10px 13px; font-family:'DM Sans',sans-serif;
+  font-size:15px; border-radius:var(--r); outline:none; transition:border-color .2s;
+}
+.jinput:focus { border-color:var(--bd-g); background:var(--surface); }
+.color-row { display:flex; gap:9px; flex-wrap:wrap; }
+.cswatch {
+  width:26px; height:26px; border-radius:50%; cursor:pointer;
+  border:3px solid transparent; transition:border-color .15s, transform .15s;
+  box-shadow:0 1px 4px rgba(0,0,0,.15);
+}
+.cswatch.on { border-color:var(--text); transform:scale(1.18); }
+.join-btn {
+  background:var(--bd-r); color:#fff; border:none; padding:13px;
+  font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700;
+  border-radius:var(--r); cursor:pointer; transition:all .2s; letter-spacing:.2px;
+}
+.join-btn:hover { background:#b91c2c; transform:translateY(-1px); box-shadow:var(--sh-md); }
+.join-footer { font-size:12px; color:var(--muted); text-align:center; }
+.join-footer a { color:var(--bd-g); font-weight:600; text-decoration:none; }
+.join-footer a:hover { text-decoration:underline; }
+
+/* ── HEADER ───────────────────────────────── */
+header {
+  flex-shrink:0; height:52px;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  box-shadow:var(--sh); z-index:300;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 18px;
+}
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-flag { width:26px; height:18px; border-radius:2px; overflow:hidden; border:1px solid var(--border); display:flex; flex-shrink:0; }
+.lf-g { flex:1; background:var(--bd-g); display:flex; align-items:center; justify-content:center; }
+.lf-r { width:9px; height:9px; border-radius:50%; background:var(--bd-r); margin-left:3px; }
+.logo-name { font-size:15px; font-weight:700; letter-spacing:-.3px; }
+.logo-name em { font-style:normal; color:var(--bd-r); }
+.logo-div { width:1px; height:16px; background:var(--border); margin:0 10px; }
+.logo-sub { font-size:12px; color:var(--muted); font-weight:500; }
+
+.hdr-right { display:flex; align-items:center; gap:7px; }
+.live-chip {
+  display:flex; align-items:center; gap:5px;
+  background:#dcfce7; border:1px solid #bbf7d0;
+  border-radius:20px; padding:4px 11px;
+  font-size:11px; font-weight:600; color:#15803d;
+}
+.live-chip.offline { background:#fee2e2; border-color:#fca5a5; color:var(--sev-c); }
+.blink { width:6px; height:6px; border-radius:50%; background:currentColor; animation:blink 1.3s steps(1) infinite; }
+@keyframes blink { 50% { opacity:.15; } }
+
+.hbtn {
+  display:flex; align-items:center; gap:5px;
+  padding:6px 13px; border-radius:var(--r);
+  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  cursor:pointer; transition:all .15s; border:1px solid; text-decoration:none;
+}
+.hbtn-ghost { background:transparent; border-color:var(--border); color:var(--sub); }
+.hbtn-ghost:hover { background:var(--s2); color:var(--text); }
+.hbtn-red { background:var(--bd-r); border-color:var(--bd-r); color:#fff; }
+.hbtn-red:hover { background:#b91c2c; }
+.hbtn-green { background:var(--bd-g); border-color:var(--bd-g); color:#fff; }
+.hbtn-green:hover { background:#005540; }
+
+/* ── LAYOUT ───────────────────────────────── */
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* ── MAP ──────────────────────────────────── */
+#map { flex:1; position:relative; }
+.leaflet-container { background:#e9e6de !important; }
+.leaflet-control-zoom a { background:var(--surface) !important; color:var(--text) !important; border:1px solid var(--border) !important; box-shadow:var(--sh) !important; }
+.leaflet-control-attribution { background:rgba(255,255,255,.88) !important; color:var(--muted) !important; font-size:9px !important; }
+#map.pick-mode { cursor:crosshair !important; }
+
+.map-badge {
+  position:absolute; top:12px; left:12px; z-index:500; pointer-events:none;
+  background:rgba(255,255,255,.93); border:1px solid var(--border);
+  border-radius:20px; padding:5px 13px; font-size:11px; font-weight:600;
+  color:var(--sub); backdrop-filter:blur(4px);
+}
+.pick-banner {
+  position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+  z-index:600; background:var(--bd-r); color:#fff;
+  padding:9px 22px; font-weight:600; font-size:13px;
+  border-radius:22px; display:none; pointer-events:none; box-shadow:var(--sh-md);
+}
+.pick-banner.on { display:block; }
+.users-pill {
+  position:absolute; top:12px; right:12px; z-index:500;
+  background:rgba(255,255,255,.93); border:1px solid var(--border);
+  border-radius:20px; padding:5px 12px; font-size:12px; font-weight:500;
+  color:var(--sub); display:flex; align-items:center; gap:6px;
+  backdrop-filter:blur(4px);
+}
+.map-legend {
+  position:absolute; bottom:18px; right:12px; z-index:500;
+  background:rgba(255,255,255,.95); border:1px solid var(--border);
+  border-radius:var(--r); padding:10px 14px; font-size:12px; box-shadow:var(--sh);
+}
+.leg-h { font-size:10px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+.leg-r { display:flex; align-items:center; gap:7px; margin-bottom:4px; color:var(--sub); }
+.leg-d { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.leg-sep { border-top:1px solid var(--border); margin:7px 0; }
+
+/* ── PANEL ────────────────────────────────── */
+.panel {
+  width:var(--panel); flex-shrink:0;
+  background:var(--surface); border-left:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.ptabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; padding:0 4px; }
+.ptab {
+  flex:1; padding:12px 0; background:transparent; border:none;
+  color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  letter-spacing:.3px; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s;
+}
+.ptab.on { color:var(--text); border-bottom-color:var(--bd-r); }
+.pcontent { display:none; flex:1; flex-direction:column; overflow-y:auto; }
+.pcontent.on { display:flex; }
+.pcontent::-webkit-scrollbar { width:3px; }
+.pcontent::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+/* feed */
+.fbar { display:flex; gap:5px; padding:10px 14px; border-bottom:1px solid var(--border); flex-wrap:wrap; flex-shrink:0; }
+.fchip {
+  padding:4px 10px; background:var(--s2); border:1px solid var(--border);
+  color:var(--muted); font-family:'DM Sans',sans-serif; font-size:11px; font-weight:600;
+  border-radius:20px; cursor:pointer; transition:all .14s;
+}
+.fchip.on { background:var(--bd-r); border-color:var(--bd-r); color:#fff; }
+.fchip:hover:not(.on) { background:var(--border); color:var(--text); }
+
+.fitem {
+  padding:12px 14px; border-bottom:1px solid var(--border);
+  display:flex; gap:10px; cursor:pointer; transition:background .12s;
+  animation:fi .3s ease;
+}
+.fitem:hover { background:var(--s2); }
+@keyframes fi { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:none; } }
+.ficon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+.fbody { flex:1; min-width:0; }
+.ftitle { font-size:13px; font-weight:600; color:var(--text); line-height:1.3; }
+.fmeta { display:flex; gap:6px; margin-top:3px; flex-wrap:wrap; align-items:center; }
+.sbadge { padding:2px 7px; font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; border-radius:4px; }
+.sc { background:#fee2e2; color:var(--sev-c); }
+.sh { background:#fff3e0; color:var(--sev-h); }
+.sm { background:#fefce8; color:var(--sev-m); }
+.sl { background:#e8f5e9; color:var(--sev-l); }
+.fsub { font-size:11px; color:var(--muted); }
+
+/* users */
+.urow { padding:11px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer; transition:background .12s; }
+.urow:hover { background:var(--s2); }
+.udot { width:11px; height:11px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 2px rgba(0,0,0,.07); }
+.uname { font-size:13px; font-weight:600; color:var(--text); }
+.usub { font-size:11px; color:var(--muted); }
+.you-tag { font-size:10px; background:#e8f5e9; color:var(--sev-l); border-radius:4px; padding:1px 5px; font-weight:700; }
+.myloc-btn {
+  width:calc(100% - 28px); margin:10px 14px; padding:9px;
+  background:var(--s2); border:1px solid var(--border2); color:var(--sub);
+  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  border-radius:var(--r); cursor:pointer; transition:all .15s;
+}
+.myloc-btn:hover { background:var(--bd-g); color:#fff; border-color:var(--bd-g); }
+
+/* report form */
+.rform { padding:16px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; flex:1; }
+.rform::-webkit-scrollbar { width:3px; }
+.rform::-webkit-scrollbar-thumb { background:var(--border2); }
+.rlabel { font-size:11px; font-weight:600; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.rgroup { display:flex; flex-direction:column; gap:5px; }
+.rinput, .rselect, .rtextarea {
+  background:var(--s2); border:1.5px solid var(--border); color:var(--text);
+  padding:9px 12px; font-family:'DM Sans',sans-serif; font-size:14px;
+  border-radius:var(--r); outline:none; transition:border-color .2s; width:100%;
+}
+.rinput:focus, .rselect:focus, .rtextarea:focus { border-color:var(--bd-g); background:var(--surface); }
+.rselect { appearance:none; -webkit-appearance:none; }
+.rselect option { background:var(--surface); }
+.rtextarea { resize:vertical; min-height:68px; }
+
+.tgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.tbtn {
+  padding:9px 4px; background:var(--s2); border:1.5px solid var(--border);
+  color:var(--muted); cursor:pointer; display:flex; flex-direction:column;
+  align-items:center; gap:3px; font-family:'DM Sans',sans-serif;
+  font-size:11px; font-weight:600; border-radius:var(--r); transition:all .15s;
+}
+.tbtn:hover { border-color:var(--border2); color:var(--text); background:var(--surface); }
+.tbtn.on { border-color:var(--bd-r); color:var(--bd-r); background:#fff5f5; }
+.tbtn span:first-child { font-size:19px; }
+
+.sevrow { display:flex; gap:6px; }
+.sevbtn {
+  flex:1; padding:8px 4px; border:1.5px solid var(--border); background:var(--s2);
+  color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif;
+  font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+  border-radius:var(--r); transition:all .15s;
+}
+.sevbtn[data-v="critical"].on { background:#fee2e2; color:var(--sev-c); border-color:var(--sev-c); }
+.sevbtn[data-v="high"].on    { background:#fff3e0; color:var(--sev-h); border-color:var(--sev-h); }
+.sevbtn[data-v="medium"].on  { background:#fefce8; color:var(--sev-m); border-color:var(--sev-m); }
+.sevbtn[data-v="low"].on     { background:#e8f5e9; color:var(--sev-l); border-color:var(--sev-l); }
+
+.locrow { display:flex; gap:6px; }
+.locrow .rinput { flex:1; }
+.pickbtn {
+  background:var(--s2); border:1.5px solid var(--border); color:var(--sub);
+  padding:0 12px; cursor:pointer; font-family:'DM Sans',sans-serif;
+  font-size:12px; font-weight:600; border-radius:var(--r); transition:all .15s; white-space:nowrap;
+}
+.pickbtn:hover, .pickbtn.on { border-color:var(--bd-r); color:var(--bd-r); background:#fff5f5; }
+.coordbox {
+  font-family:'DM Mono',monospace; font-size:11px; color:var(--muted);
+  background:var(--s2); border:1px solid var(--border);
+  padding:7px 11px; border-radius:var(--r);
+}
+.submitbtn {
+  background:var(--bd-r); color:#fff; border:none; padding:13px;
+  font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700;
+  border-radius:var(--r); cursor:pointer; transition:all .2s; margin-top:2px;
+}
+.submitbtn:hover { background:#b91c2c; transform:translateY(-1px); box-shadow:var(--sh-md); }
+
+/* empty */
+.empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--muted); font-size:13px; }
+.empty-ico { font-size:36px; opacity:.28; }
+
+/* markers */
+.cm { width:32px; height:32px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); border:2.5px solid rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,.2); cursor:pointer; }
+.cm span { transform:rotate(45deg); font-size:13px; line-height:1; display:block; }
+.um-wrap { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.um { width:28px; height:28px; border-radius:50%; border:3px solid rgba(255,255,255,.95); display:flex; align-items:center; justify-content:center; font-size:12px; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+.um-lbl { font-family:'DM Sans',sans-serif; font-size:10px; font-weight:700; color:var(--text); background:rgba(255,255,255,.92); padding:1px 5px; white-space:nowrap; border-radius:3px; border:1px solid var(--border); box-shadow:var(--sh); }
+
+/* popup */
+.leaflet-popup-content-wrapper { background:var(--surface) !important; color:var(--text) !important; border:1px solid var(--border) !important; border-radius:9px !important; box-shadow:var(--sh-md) !important; }
+.leaflet-popup-tip { background:var(--surface) !important; }
+.leaflet-popup-close-button { color:var(--muted) !important; }
+.pop { font-family:'DM Sans',sans-serif; min-width:190px; }
+.pop h3 { font-size:14px; font-weight:700; margin-bottom:4px; }
+.pop p { font-size:12px; color:var(--sub); line-height:1.5; margin-bottom:6px; }
+.pop-tags { display:flex; gap:4px; flex-wrap:wrap; }
+.pop-tag { padding:2px 6px; font-size:10px; font-weight:600; border-radius:4px; background:var(--s2); color:var(--muted); }
+
+/* toast */
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(50px); background:var(--text); color:#fff; padding:9px 18px; font-size:12px; font-weight:500; border-radius:20px; z-index:9999; transition:transform .25s ease; pointer-events:none; box-shadow:var(--sh-md); }
+.toast.up { transform:translateX(-50%) translateY(0); }
+
+@media(max-width:820px){
+  .main { flex-direction:column; }
+  .panel { width:100%; height:42vh; border-left:none; border-top:1px solid var(--border); }
+}
+
+/* ── PROXIMITY WARNING BANNER ────────────── */
+#warn-banner {
+  position:fixed; top:0; left:0; right:0; z-index:8000;
+  transform:translateY(-100%);
+  transition:transform .4s cubic-bezier(.34,1.3,.64,1);
+  pointer-events:none;
+}
+#warn-banner.show {
+  transform:translateY(0);
+  pointer-events:auto;
+}
+
+/* Collapsed bar — always visible when shown */
+.warn-bar {
+  display:flex; align-items:center; gap:12px;
+  padding:0 18px; height:52px;
+  border-bottom:1px solid rgba(0,0,0,.08);
+  box-shadow:0 4px 20px rgba(0,0,0,.13);
+  cursor:pointer; user-select:none;
+}
+.warn-bar-icon { font-size:20px; flex-shrink:0; }
+.warn-bar-text { flex:1; min-width:0; }
+.warn-bar-eyebrow {
+  font-size:10px; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; opacity:.75; line-height:1;
+}
+.warn-bar-title {
+  font-size:13px; font-weight:600; color:inherit;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  line-height:1.3; margin-top:1px;
+}
+.warn-bar-km {
+  font-size:11px; font-family:'DM Mono',monospace;
+  opacity:.7; flex-shrink:0; white-space:nowrap;
+}
+.warn-expand-icon {
+  font-size:13px; opacity:.7; flex-shrink:0;
+  transition:transform .3s ease;
+}
+#warn-banner.expanded .warn-expand-icon { transform:rotate(180deg); }
+.warn-bar-close {
+  width:26px; height:26px; border-radius:6px;
+  border:1px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.15);
+  color:inherit; font-size:13px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background .15s; flex-shrink:0; margin-left:4px;
+}
+.warn-bar-close:hover { background:rgba(255,255,255,.3); }
+
+/* Expanded tips panel */
+.warn-panel {
+  max-height:0; overflow:hidden;
+  transition:max-height .4s cubic-bezier(.4,0,.2,1);
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 6px 24px rgba(0,0,0,.1);
+}
+#warn-banner.expanded .warn-panel { max-height:600px; }
+
+.warn-panel-inner {
+  padding:16px 18px 18px;
+  display:flex; gap:18px;
+}
+.warn-panel-left { flex:1; min-width:0; }
+.warn-desc {
+  font-size:13px; color:var(--sub); line-height:1.6;
+  padding:10px 13px; border-radius:var(--r);
+  border-left:3px solid; margin-bottom:14px;
+}
+.tips-label {
+  font-size:10px; font-weight:700; letter-spacing:.9px;
+  text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+}
+.tips-grid { display:flex; flex-direction:column; gap:6px; }
+.tip-card {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:9px 12px; background:var(--s2);
+  border:1px solid var(--border); border-radius:var(--r);
+}
+.tip-ico { font-size:17px; flex-shrink:0; margin-top:1px; }
+.tip-text { font-size:12px; color:var(--text); line-height:1.5; }
+.tip-text strong { font-weight:600; display:block; margin-bottom:1px; font-size:12px; }
+
+.warn-panel-actions {
+  display:flex; flex-direction:column; gap:8px;
+  flex-shrink:0; width:140px; padding-top:2px;
+}
+.warn-btn-locate {
+  padding:10px 12px; border:none; color:#fff;
+  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  border-radius:var(--r); cursor:pointer; transition:all .15s;
+  text-align:center;
+}
+.warn-btn-locate:hover { filter:brightness(.88); }
+.warn-btn-dismiss {
+  padding:10px 12px; background:var(--s2); border:1px solid var(--border);
+  color:var(--sub); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  border-radius:var(--r); cursor:pointer; transition:all .15s; text-align:center;
+}
+.warn-btn-dismiss:hover { background:var(--border); color:var(--text); }
+
+/* pulse ring on the disaster marker */
+@keyframes warn-ring {
+  0%   { box-shadow:0 0 0 0 rgba(200,25,43,.5); }
+  70%  { box-shadow:0 0 0 18px rgba(200,25,43,0); }
+  100% { box-shadow:0 0 0 0 rgba(200,25,43,0); }
+}
+.warn-pulse { animation:warn-ring 1.4s ease-out infinite !important; }
+
+
+/* ── MY DISTRICT RISK CARD ── */
+#my-district-card {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  z-index: 700;
+  width: min(440px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.14);
+  overflow: hidden;
+  transition: transform .4s cubic-bezier(.22,.68,0,1.2);
+  pointer-events: auto;
+}
+#my-district-card.show {
+  transform: translateX(-50%) translateY(0);
+}
+.mdc-header {
+  padding: 13px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mdc-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.mdc-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.mdc-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.mdc-close {
+  margin-left: auto;
+  width: 26px; height: 26px;
+  border-radius: 50%; border: 1px solid var(--border);
+  background: transparent; cursor: pointer;
+  font-size: 13px; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+.mdc-close:hover { background: var(--s2); color: var(--text); }
+.mdc-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.mdc-row-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .7px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 2px;
+}
+.mdc-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.mdc-bar-bg   { flex: 1; height: 7px; background: var(--s2); border-radius: 4px; overflow: hidden; }
+.mdc-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.mdc-bar-val  { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 700; width: 28px; }
+.mdc-footer {
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.mdc-badge {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  letter-spacing: .4px;
+}
+.mdc-link {
+  font-size: 11px; font-weight: 600;
+  color: var(--bd-g); text-decoration: none;
+  display: flex; align-items: center; gap: 4px;
+}
+.mdc-link:hover { text-decoration: underline; }
+
+</style>
+</head>
+<body>
+
+<!-- JOIN OVERLAY -->
+<div id="join-overlay">
+  <div class="join-card">
+    <div class="join-brand">
+      <div class="jflag"><div class="jflag-g"><div class="jflag-r"></div></div></div>
+      <h1>Crisis<em>Map</em> BD</h1>
+    </div>
+    <p class="join-desc">Live crowd-sourced disaster reporting for Bangladesh. Enter your name to join — your location appears on the map in real time for all reporters.</p>
+    <div>
+      <div class="jlabel">Your Name</div>
+      <input class="jinput" id="join-name" type="text" placeholder="e.g. Rahim Uddin, BDRCS Dhaka…" maxlength="40">
+    </div>
+    <div>
+      <div class="jlabel">Marker Color</div>
+      <div class="color-row">
+        <div class="cswatch on"  data-color="#2563eb" style="background:#2563eb"></div>
+        <div class="cswatch"     data-color="#16a34a" style="background:#16a34a"></div>
+        <div class="cswatch"     data-color="#d97706" style="background:#d97706"></div>
+        <div class="cswatch"     data-color="#d42638" style="background:#d42638"></div>
+        <div class="cswatch"     data-color="#7c3aed" style="background:#7c3aed"></div>
+        <div class="cswatch"     data-color="#0891b2" style="background:#0891b2"></div>
+        <div class="cswatch"     data-color="#be185d" style="background:#be185d"></div>
+        <div class="cswatch"     data-color="#374151" style="background:#374151"></div>
+      </div>
+    </div>
+    <button class="join-btn" onclick="joinMap()">Join the Map →</button>
+    <p class="join-footer">Want global real-world data? <a href="/live-disasters" target="_blank">Open Live GDACS Map ↗</a></p>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-flag"><div class="lf-g"><div class="lf-r"></div></div></div>
+    <span class="logo-name">Crisis<em>Map</em> BD</span>
+    <div class="logo-div"></div>
+    <span class="logo-sub">Reporter Map</span>
+  </div>
+  <div class="hdr-right">
+    <div class="live-chip" id="live-chip"><div class="blink"></div><span id="conn-lbl">Connecting…</span></div>
+    <button class="hbtn hbtn-ghost" onclick="switchTab('feed')">📡 Feed</button>
+    <button class="hbtn hbtn-ghost" onclick="switchTab('users')">👥 Users</button>
+    <button class="hbtn hbtn-red"   onclick="switchTab('report')">＋ Report</button>
+    <a class="hbtn hbtn-green" href="/live-disasters" target="_blank">🌍 Live Disasters ↗</a>
+    <a class="hbtn" href="/risk-map" target="_blank">🗺 Risk Map</a>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- MAP -->
+  <div id="map">
+    <div class="map-badge">🇧🇩 Bangladesh · Reporter Map</div>
+    <div class="pick-banner" id="pick-banner">📍 Click the map to pin your incident</div>
+    <div class="users-pill"><div class="blink" style="color:#16a34a"></div><span id="online-count">0</span>&nbsp;online</div>
+    <div class="map-legend">
+      <div class="leg-h">Severity</div>
+      <div class="leg-r"><div class="leg-d" style="background:#c8192b"></div>Critical</div>
+      <div class="leg-r"><div class="leg-d" style="background:#c96a00"></div>High</div>
+      <div class="leg-r"><div class="leg-d" style="background:#a16207"></div>Medium</div>
+      <div class="leg-r"><div class="leg-d" style="background:#1a7c3e"></div>Low</div>
+      <div class="leg-sep"></div>
+      <div class="leg-h">Reporters</div>
+      <div class="leg-r"><div class="leg-d" style="background:#2563eb"></div>Live user</div>
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div class="panel">
+    <div class="ptabs">
+      <button class="ptab on" id="ptab-feed"   onclick="switchTab('feed')">📡 Feed</button>
+      <button class="ptab"    id="ptab-users"  onclick="switchTab('users')">👥 Users</button>
+      <button class="ptab"    id="ptab-report" onclick="switchTab('report')">＋ Report</button>
+    </div>
+
+    <!-- FEED -->
+    <div class="pcontent on" id="pc-feed">
+      <div class="fbar">
+        <button class="fchip on" onclick="setFilter(this,'all')">All</button>
+        <button class="fchip"    onclick="setFilter(this,'critical')">🔴 Critical</button>
+        <button class="fchip"    onclick="setFilter(this,'flood')">🌊 Flood</button>
+        <button class="fchip"    onclick="setFilter(this,'cyclone')">🌀 Cyclone</button>
+        <button class="fchip"    onclick="setFilter(this,'fire')">🔥 Fire</button>
+        <button class="fchip"    onclick="setFilter(this,'landslide')">⛰ Slide</button>
+      </div>
+      <div id="feed-list"><div class="empty"><div class="empty-ico">📡</div><div>Loading…</div></div></div>
+    </div>
+
+    <!-- USERS -->
+    <div class="pcontent" id="pc-users">
+      <div id="users-list"><div class="empty"><div class="empty-ico">👥</div><div>No users online</div></div></div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="pcontent" id="pc-report">
+      <div class="rform">
+        <div class="rgroup">
+          <div class="rlabel">Disaster Type</div>
+          <div class="tgrid">
+            <button class="tbtn" data-type="flood"     onclick="selType(this)"><span>🌊</span><span>Flood</span></button>
+            <button class="tbtn" data-type="cyclone"   onclick="selType(this)"><span>🌀</span><span>Cyclone</span></button>
+            <button class="tbtn" data-type="fire"      onclick="selType(this)"><span>🔥</span><span>Fire</span></button>
+            <button class="tbtn" data-type="landslide" onclick="selType(this)"><span>⛰</span><span>Landslide</span></button>
+            <button class="tbtn" data-type="storm"     onclick="selType(this)"><span>⛈</span><span>Storm</span></button>
+            <button class="tbtn" data-type="drought"   onclick="selType(this)"><span>☀</span><span>Drought</span></button>
+            <button class="tbtn" data-type="riverbank" onclick="selType(this)"><span>🏞</span><span>Erosion</span></button>
+            <button class="tbtn" data-type="heatwave"  onclick="selType(this)"><span>🌡</span><span>Heatwave</span></button>
+            <button class="tbtn" data-type="other"     onclick="selType(this)"><span>⚠</span><span>Other</span></button>
+          </div>
+        </div>
+        <div class="rgroup">
+          <div class="rlabel">Severity</div>
+          <div class="sevrow">
+            <button class="sevbtn" data-v="low"      onclick="selSev(this)">Low</button>
+            <button class="sevbtn" data-v="medium"   onclick="selSev(this)">Med</button>
+            <button class="sevbtn" data-v="high"     onclick="selSev(this)">High</button>
+            <button class="sevbtn" data-v="critical" onclick="selSev(this)">Critical</button>
+          </div>
+        </div>
+        <div class="rgroup">
+          <div class="rlabel">District</div>
+          <select class="rselect" id="f-district">
+            <option value="">— Select District —</option>
+            <option>Bagerhat</option><option>Bandarban</option><option>Barguna</option><option>Barisal</option><option>Bhola</option><option>Bogura</option><option>Brahmanbaria</option><option>Chandpur</option><option>Chapai Nawabganj</option><option>Chattogram</option><option>Chuadanga</option><option>Cox's Bazar</option><option>Cumilla</option><option>Dhaka</option><option>Dinajpur</option><option>Faridpur</option><option>Feni</option><option>Gaibandha</option><option>Gazipur</option><option>Gopalganj</option><option>Habiganj</option><option>Jamalpur</option><option>Jashore</option><option>Jhalokathi</option><option>Jhenaidah</option><option>Joypurhat</option><option>Khagrachhari</option><option>Khulna</option><option>Kishoreganj</option><option>Kurigram</option><option>Kushtia</option><option>Lakshmipur</option><option>Lalmonirhat</option><option>Madaripur</option><option>Magura</option><option>Manikganj</option><option>Meherpur</option><option>Moulvibazar</option><option>Munshiganj</option><option>Mymensingh</option><option>Naogaon</option><option>Narail</option><option>Narayanganj</option><option>Narsingdi</option><option>Natore</option><option>Netrokona</option><option>Nilphamari</option><option>Noakhali</option><option>Pabna</option><option>Panchagarh</option><option>Patuakhali</option><option>Pirojpur</option><option>Rajbari</option><option>Rajshahi</option><option>Rangamati</option><option>Rangpur</option><option>Satkhira</option><option>Shariatpur</option><option>Sherpur</option><option>Sirajganj</option><option>Sunamganj</option><option>Sylhet</option><option>Tangail</option><option>Thakurgaon</option>
+          </select>
+        </div>
+        <div class="rgroup">
+          <div class="rlabel">Title</div>
+          <input class="rinput" id="f-title" type="text" placeholder="e.g. Flash flood near Sylhet Station">
+        </div>
+        <div class="rgroup">
+          <div class="rlabel">Description</div>
+          <textarea class="rtextarea" id="f-desc" placeholder="Scale, affected people, road access…"></textarea>
+        </div>
+        <div class="rgroup">
+          <div class="rlabel">Pin on Map</div>
+          <div class="locrow">
+            <input class="rinput" id="f-loc-name" type="text" placeholder="Union / village / area">
+            <button class="pickbtn" id="btn-pick" onclick="togglePick()">📍 Pick</button>
+          </div>
+          <div class="coordbox" id="coord-box">No pin — click "Pick" then tap the map</div>
+        </div>
+        <button class="submitbtn" onclick="submitReport()">⚡ Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var DI = {
+  flood:     {e:'🌊',c:'#3b82f6',bg:'#eff6ff'},
+  cyclone:   {e:'🌀',c:'#7c3aed',bg:'#f5f3ff'},
+  fire:      {e:'🔥',c:'#ef4444',bg:'#fef2f2'},
+  landslide: {e:'⛰', c:'#92400e',bg:'#fdf3e7'},
+  storm:     {e:'⛈', c:'#64748b',bg:'#f8fafc'},
+  drought:   {e:'☀', c:'#d97706',bg:'#fffbeb'},
+  riverbank: {e:'🏞', c:'#0891b2',bg:'#ecfeff'},
+  heatwave:  {e:'🌡',c:'#ea580c',bg:'#fff7ed'},
+  other:     {e:'⚠', c:'#6b7280',bg:'#f9fafb'}
+};
+var SC = {critical:'#c8192b', high:'#c96a00', medium:'#a16207', low:'#1a7c3e'};
+var DC = {
+  'Bagerhat':[22.65,89.78],'Bandarban':[22.19,92.22],'Barguna':[22.15,90.11],'Barisal':[22.70,90.37],'Bhola':[22.69,90.65],'Bogura':[24.85,89.36],'Brahmanbaria':[23.96,91.11],'Chandpur':[23.23,90.65],'Chapai Nawabganj':[24.74,88.29],'Chattogram':[22.34,91.84],'Chuadanga':[23.64,88.84],"Cox's Bazar":[21.44,92.01],'Cumilla':[23.46,91.18],'Dhaka':[23.81,90.41],'Dinajpur':[25.63,88.64],'Faridpur':[23.60,89.84],'Feni':[23.01,91.40],'Gaibandha':[25.32,89.54],'Gazipur':[24.00,90.43],'Gopalganj':[23.00,89.83],'Habiganj':[24.37,91.41],'Jamalpur':[24.90,89.94],'Jashore':[23.17,89.21],'Jhalokathi':[22.64,90.20],'Jhenaidah':[23.54,89.15],'Joypurhat':[25.10,89.02],'Khagrachhari':[23.12,91.98],'Khulna':[22.80,89.54],'Kishoreganj':[24.44,90.78],'Kurigram':[25.81,89.64],'Kushtia':[23.89,89.12],'Lakshmipur':[22.94,90.84],'Lalmonirhat':[25.92,89.45],'Madaripur':[23.17,90.20],'Magura':[23.49,89.42],'Manikganj':[23.86,90.01],'Meherpur':[23.76,88.63],'Moulvibazar':[24.48,91.78],'Munshiganj':[23.54,90.53],'Mymensingh':[24.75,90.40],'Naogaon':[24.79,88.94],'Narail':[23.17,89.50],'Narayanganj':[23.62,90.50],'Narsingdi':[23.93,90.71],'Natore':[24.42,88.99],'Netrokona':[24.87,90.73],'Nilphamari':[25.93,88.85],'Noakhali':[22.87,91.10],'Pabna':[24.00,89.25],'Panchagarh':[26.34,88.56],'Patuakhali':[22.36,90.33],'Pirojpur':[22.58,89.97],'Rajbari':[23.76,89.64],'Rajshahi':[24.37,88.60],'Rangamati':[22.73,92.20],'Rangpur':[25.74,89.25],'Satkhira':[22.72,89.07],'Shariatpur':[23.24,90.35],'Sherpur':[25.02,90.01],'Sirajganj':[24.45,89.71],'Sunamganj':[25.07,91.40],'Sylhet':[24.89,91.87],'Tangail':[24.25,89.92],'Thakurgaon':[26.03,88.45]
+};
+
+var map, socket;
+var myId=null, myName='', myColor='#2563eb';
+var reports=[], fFilter='all', rMarkers={}, uMarkers={};
+var pickMode=false, picked=null, sType=null, sSev=null;
+
+/* JOIN */
+document.querySelectorAll('.cswatch').forEach(function(el){
+  el.onclick=function(){
+    document.querySelectorAll('.cswatch').forEach(function(e){e.classList.remove('on');});
+    el.classList.add('on'); myColor=el.dataset.color;
+  };
+});
+document.getElementById('join-name').onkeydown=function(e){if(e.key==='Enter')joinMap();};
+
+function joinMap(){
+  var n=document.getElementById('join-name').value.trim();
+  if(!n){document.getElementById('join-name').focus();return;}
+  myName=n;
+  document.getElementById('join-overlay').style.display='none';
+  initMap(); initSocket(); startGPS();
+}
+
+/* MAP */
+function initMap(){
+  map=L.map('map',{center:[23.7,90.35],zoom:7,minZoom:6,maxZoom:14,maxBounds:[[19.5,87.0],[27.0,94.0]]});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+  map.on('click',function(e){
+    if(!pickMode)return;
+    picked=e.latlng;
+    document.getElementById('coord-box').textContent='Lat: '+e.latlng.lat.toFixed(5)+',  Lng: '+e.latlng.lng.toFixed(5);
+    disablePick(); switchTab('report'); toast('📍 Location pinned!');
+  });
+}
+
+/* SOCKET */
+function initSocket(){
+  socket=io();
+  socket.on('connect',function(){
+    myId=socket.id;
+    document.getElementById('conn-lbl').textContent='Live';
+    document.getElementById('live-chip').classList.remove('offline');
+    socket.emit('user:join',{name:myName,color:myColor,lat:23.7,lng:90.35});
+  });
+  socket.on('disconnect',function(){
+    document.getElementById('conn-lbl').textContent='Offline';
+    document.getElementById('live-chip').classList.add('offline');
+  });
+  socket.on('init',function(d){
+    myId=d.yourId;
+    d.reports.forEach(addRpt);
+    d.users.forEach(upsertUser);
+    renderUsers(d.users);
+  });
+  socket.on('report:new',function(r){
+    addRpt(r);
+    if(r.reporter!==myName)toast('📡 '+r.title);
+  });
+  socket.on('user:moved',function(d){if(uMarkers[d.id])uMarkers[d.id].setLatLng([d.lat,d.lng]);});
+  socket.on('users:list',function(us){
+    us.forEach(upsertUser); renderUsers(us);
+    document.getElementById('online-count').textContent=us.length;
+  });
+  socket.on('user:left',function(d){if(uMarkers[d.id]){map.removeLayer(uMarkers[d.id]);delete uMarkers[d.id];}});
+}
+
+/* GPS */
+function startGPS(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.watchPosition(function(p){
+    var la=p.coords.latitude,lo=p.coords.longitude;
+    if(la>19&&la<28&&lo>87&&lo<93){
+      if(socket&&socket.connected)socket.emit('user:move',{lat:la,lng:lo});
+      if(myId&&uMarkers[myId])uMarkers[myId].setLatLng([la,lo]);
+    }
+    // Update global position and check all known reports for proximity
+    myLat=la; myLng=lo;
+    checkProximity(reports);
+  },null,{enableHighAccuracy:true,maximumAge:5000,timeout:10000});
+}
+function flyToMe(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(function(p){map.setView([p.coords.latitude,p.coords.longitude],12,{animate:true});});
+}
+
+/* USER MARKERS */
+function upsertUser(u){
+  var isMe=u.id===myId;
+  var html='<div class="um-wrap"><div class="um" style="background:'+u.color+'">'+(isMe?'★':'●')+'</div><div class="um-lbl">'+esc(u.name)+(isMe?' (you)':'')+'</div></div>';
+  var icon=L.divIcon({className:'',html:html,iconSize:[30,44],iconAnchor:[15,15],popupAnchor:[0,-18]});
+  if(uMarkers[u.id]){uMarkers[u.id].setIcon(icon);uMarkers[u.id].setLatLng([u.lat,u.lng]);}
+  else{var m=L.marker([u.lat,u.lng],{icon:icon,zIndexOffset:1000}).addTo(map);m.bindPopup('<div class="pop"><h3>'+esc(u.name)+(isMe?' <span style="color:#1a7c3e">(you)</span>':'')+'</h3><p style="color:var(--muted)">Live reporter</p></div>');uMarkers[u.id]=m;}
+}
+
+/* REPORT MARKERS */
+function addRpt(r){
+  reports.unshift(r);
+  var info=DI[r.type]||DI.other, col=SC[r.severity]||'#6b7280';
+  var icon=L.divIcon({className:'',html:'<div class="cm" style="background:'+col+'"><span>'+info.e+'</span></div>',iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-34]});
+  var m=L.marker([r.lat,r.lng],{icon:icon}).addTo(map);
+  var t=new Date(r.time).toLocaleTimeString();
+  m.bindPopup('<div class="pop"><h3>'+info.e+' '+esc(r.title)+'</h3><p>'+esc(r.desc)+'</p><div class="pop-tags"><span class="sbadge s'+r.severity[0]+'">'+r.severity+'</span><span class="pop-tag">📍 '+esc(r.location)+'</span><span class="pop-tag">'+t+'</span><span class="pop-tag">👤 '+esc(r.reporter)+'</span></div></div>');
+  rMarkers[r.id]=m;
+  renderFeed();
+  // Check if this new report is close to the user
+  if(myLat!==null) checkProximity([r]);
+}
+
+/* FEED */
+function renderFeed(){
+  var list=document.getElementById('feed-list');
+  var items=fFilter==='all'?reports:fFilter==='critical'?reports.filter(function(r){return r.severity==='critical';}):reports.filter(function(r){return r.type===fFilter;});
+  if(!items.length){list.innerHTML='<div class="empty"><div class="empty-ico">📡</div><div>No reports</div></div>';return;}
+  list.innerHTML='';
+  items.forEach(function(r){
+    var info=DI[r.type]||DI.other,col=SC[r.severity]||'#6b7280';
+    var t=new Date(r.time).toLocaleTimeString();
+    var el=document.createElement('div');el.className='fitem';
+    el.innerHTML='<div class="ficon" style="background:'+info.bg+'">'+info.e+'</div><div class="fbody"><div class="ftitle">'+esc(r.title)+'</div><div class="fmeta"><span class="sbadge s'+r.severity[0]+'">'+r.severity+'</span><span class="fsub">📍 '+esc(r.location)+'</span><span class="fsub">'+t+'</span></div></div>';
+    el.onclick=function(){if(rMarkers[r.id]){map.setView([r.lat,r.lng],11,{animate:true});rMarkers[r.id].openPopup();}};
+    list.appendChild(el);
+  });
+}
+
+/* USERS LIST */
+function renderUsers(users){
+  var list=document.getElementById('users-list');
+  if(!users.length){list.innerHTML='<div class="empty"><div class="empty-ico">👥</div><div>No users online</div></div>';return;}
+  list.innerHTML='<button class="myloc-btn" onclick="flyToMe()">📍 Fly to My Location</button>';
+  users.forEach(function(u){
+    var isMe=u.id===myId;
+    var row=document.createElement('div');row.className='urow';
+    row.innerHTML='<div class="udot" style="background:'+u.color+'"></div><div style="flex:1"><div class="uname">'+esc(u.name)+(isMe?' <span class="you-tag">YOU</span>':'')+'</div><div class="usub">'+u.lat.toFixed(3)+', '+u.lng.toFixed(3)+'</div></div>';
+    row.onclick=function(){map.setView([u.lat,u.lng],11,{animate:true});if(uMarkers[u.id])uMarkers[u.id].openPopup();};
+    list.appendChild(row);
+  });
+}
+
+/* SUBMIT */
+function submitReport(){
+  var title=document.getElementById('f-title').value.trim();
+  var desc=document.getElementById('f-desc').value.trim();
+  var district=document.getElementById('f-district').value;
+  var locname=document.getElementById('f-loc-name').value.trim();
+  if(!sType){toast('Select a disaster type',true);return;}
+  if(!sSev){toast('Select severity',true);return;}
+  if(!title){toast('Enter a title',true);return;}
+  if(!district&&!picked){toast('Select district or pin on map',true);return;}
+  var ll=picked;
+  if(!ll&&district&&DC[district]){var c=DC[district];ll={lat:c[0]+(Math.random()-.5)*.2,lng:c[1]+(Math.random()-.5)*.2};}
+  if(!ll)ll={lat:23.7,lng:90.35};
+  socket.emit('report:new',{type:sType,severity:sSev,title:title,desc:desc,district:district,location:locname||district||'Bangladesh',lat:ll.lat,lng:ll.lng});
+  resetForm(); switchTab('feed'); toast('✅ Report sent!');
+}
+function resetForm(){
+  ['f-title','f-desc','f-loc-name'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('f-district').value='';
+  document.getElementById('coord-box').textContent='No pin — click "Pick" then tap the map';
+  document.querySelectorAll('.tbtn').forEach(function(b){b.classList.remove('on');});
+  document.querySelectorAll('.sevbtn').forEach(function(b){b.classList.remove('on');});
+  sType=null; sSev=null; picked=null;
+}
+
+/* UI HELPERS */
+function switchTab(t){
+  document.querySelectorAll('.ptab').forEach(function(el){el.classList.remove('on');});
+  document.querySelectorAll('.pcontent').forEach(function(el){el.classList.remove('on');});
+  document.getElementById('ptab-'+t).classList.add('on');
+  document.getElementById('pc-'+t).classList.add('on');
+}
+function setFilter(btn,f){
+  document.querySelectorAll('.fchip').forEach(function(c){c.classList.remove('on');});
+  btn.classList.add('on'); fFilter=f; renderFeed();
+}
+function selType(btn){
+  document.querySelectorAll('.tbtn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on'); sType=btn.dataset.type;
+}
+function selSev(btn){
+  document.querySelectorAll('.sevbtn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on'); sSev=btn.dataset.v;
+}
+function togglePick(){pickMode?disablePick():enablePick();}
+function enablePick(){pickMode=true;document.getElementById('map').classList.add('pick-mode');document.getElementById('pick-banner').classList.add('on');document.getElementById('btn-pick').classList.add('on');switchTab('feed');}
+function disablePick(){pickMode=false;document.getElementById('map').classList.remove('pick-mode');document.getElementById('pick-banner').classList.remove('on');document.getElementById('btn-pick').classList.remove('on');}
+function toast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.style.background=err?'#c8192b':'#18170f';t.classList.add('up');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('up');},3000);}
+
+/* ═══════════════════════════════════════════
+   PROXIMITY WARNING SYSTEM
+   Threshold: 50 km
+═══════════════════════════════════════════ */
+var WARN_RADIUS_KM = 50;
+var warnedIds      = new Set();   // IDs already warned about — no repeat alerts
+var myLat = null, myLng = null;   // updated by GPS watch
+var warnReport     = null;         // the report currently shown in modal
+
+/* Tips database — per disaster type */
+var TIPS = {
+  flood: [
+    { ico:'🏃', title:'Move to higher ground immediately', body:'Do not wait for official orders. Go upstairs or to the roof if needed.' },
+    { ico:'🚫', title:'Never walk through floodwater', body:'15 cm of fast-moving water can knock you off your feet. 30 cm can sweep away a car.' },
+    { ico:'🔌', title:'Switch off electricity at the mains', body:'Avoid contact with water if electrical equipment has been submerged.' },
+    { ico:'🎒', title:'Grab your emergency kit', body:'Documents, medicine, phone charger, water, and a few days of food.' },
+    { ico:'📞', title:'Call emergency services if trapped', body:'Bangladesh emergency: 999 | BDRCS: 01713-038989' },
+  ],
+  cyclone: [
+    { ico:'🏠', title:'Go to the nearest cyclone shelter', body:'Bangladesh has over 4,000 designated shelters. Locate yours now at DMB.gov.bd.' },
+    { ico:'🪟', title:'Tape or board up windows', body:'Flying glass is the leading cause of injury during cyclones.' },
+    { ico:'📱', title:'Charge all devices now', body:'Keep power banks ready. Download offline maps in case mobile data fails.' },
+    { ico:'🌊', title:'Stay away from the coast and rivers', body:'Storm surges can push seawater 40 km inland.' },
+    { ico:'🚗', title:'Do not drive during landfall', body:'Cyclone winds can flip vehicles. Shelter in a sturdy structure.' },
+  ],
+  fire: [
+    { ico:'🚪', title:'Evacuate immediately — do not use lifts', body:'Use stairs. Keep low to avoid smoke inhalation.' },
+    { ico:'🚒', title:'Call the Fire Service', body:'Bangladesh FSCD: 999 or 02-9555555. Do not attempt to fight large fires.' },
+    { ico:'👁', title:'Avoid smoke — cover your nose and mouth', body:'Wet cloth over nose and mouth. Smoke kills faster than flames.' },
+    { ico:'🚫', title:'Do not re-enter the building', body:'Wait for fire services to declare it safe.' },
+    { ico:'🤝', title:'Assist neighbours if safe to do so', body:'Alert elderly or disabled neighbours who may need help evacuating.' },
+  ],
+  heatwave: [
+    { ico:'💧', title:'Drink water every 20 minutes', body:'Do not wait until you feel thirsty. Aim for at least 3 litres per day.' },
+    { ico:'🏠', title:'Stay indoors between 11 am – 4 pm', body:'Peak heat hours. If outdoors, use an umbrella or shaded routes.' },
+    { ico:'👕', title:'Wear light, loose, light-coloured clothing', body:'Cotton and linen breathe better. Avoid dark colours that absorb heat.' },
+    { ico:'🧊', title:'Cool yourself with damp cloths', body:'Apply to wrists, neck, and forehead. Use fans with damp sheets.' },
+    { ico:'🏥', title:'Know heat-stroke signs', body:'If someone stops sweating, becomes confused or unconscious — call 999 immediately.' },
+  ],
+  drought: [
+    { ico:'💧', title:'Conserve water immediately', body:'Fix leaks, use buckets instead of hoses, reduce non-essential water use.' },
+    { ico:'🌾', title:'Protect your crops with mulch', body:'Mulching reduces soil moisture loss by up to 70%.' },
+    { ico:'🥤', title:'Store drinking water safely', body:'Use clean, covered containers. Boil or treat stored water before drinking.' },
+    { ico:'🐄', title:'Supplement livestock feed and water', body:'Drought stresses animals quickly. Contact local DAE extension offices.' },
+    { ico:'📋', title:'Register for government relief', body:'Contact local UP or DAE office for drought assistance programmes.' },
+  ],
+  landslide: [
+    { ico:'🏃', title:'Evacuate the slope area immediately', body:'Move away from the direction of the slide — go sideways, not downhill.' },
+    { ico:'👂', title:'Listen for rumbling sounds', body:'A landslide sounds like thunder or rushing water. Trust your instincts.' },
+    { ico:'🏠', title:'Stay away from hillside structures', body:'Retaining walls, embankments, and hillside homes may collapse.' },
+    { ico:'🌊', title:'Avoid rivers and streams below slopes', body:'Debris flows can travel at 50 km/h and extend far from the slide zone.' },
+    { ico:'📞', title:'Report blocked roads immediately', body:'Call local authorities. Blocked roads cut off rescue access.' },
+  ],
+  storm: [
+    { ico:'🏠', title:'Stay indoors until the storm passes', body:'Avoid windows. The safest rooms are interior rooms away from glass.' },
+    { ico:'⚡', title:'Unplug appliances and avoid contact with water', body:'Lightning can travel through plumbing and electrical systems.' },
+    { ico:'🌳', title:'Stay away from trees and power lines', body:'Nor\'westers can uproot trees in seconds. Do not shelter under them.' },
+    { ico:'🚗', title:'Pull over if driving', body:'Turn on hazard lights. Do not park under trees or near water channels.' },
+    { ico:'📻', title:'Monitor Bangladesh Meteorological Department', body:'BMD issues live storm warnings at bmd.gov.bd.' },
+  ],
+  riverbank: [
+    { ico:'🚶', title:'Move belongings away from the bank', body:'Erosion can accelerate suddenly, especially during monsoon.' },
+    { ico:'🏠', title:'Evacuate structures close to the eroding bank', body:'Contact local BWDB office for emergency bouldering requests.' },
+    { ico:'🌿', title:'Do not remove vegetation near the bank', body:'Roots hold soil together. Clearing increases erosion risk.' },
+    { ico:'📋', title:'Document the erosion extent', body:'Photograph with GPS location. Useful for BWDB emergency assessment.' },
+    { ico:'📞', title:'Contact BWDB immediately', body:'Bangladesh Water Development Board: 02-9575000' },
+  ],
+  heatwave: [
+    { ico:'💧', title:'Drink water every 20 minutes', body:'Do not wait until you feel thirsty. Aim for at least 3 litres per day.' },
+    { ico:'🏠', title:'Stay indoors between 11 am – 4 pm', body:'Peak heat hours. If outdoors, use an umbrella or shaded routes.' },
+    { ico:'👕', title:'Wear light, loose, light-coloured clothing', body:'Cotton and linen breathe better. Avoid dark colours that absorb heat.' },
+    { ico:'🧊', title:'Cool yourself with damp cloths', body:'Apply to wrists, neck, and forehead. Use fans with damp sheets.' },
+    { ico:'🏥', title:'Know heat-stroke signs', body:'Stop sweating + confusion + unconsciousness = call 999 immediately.' },
+  ],
+  other: [
+    { ico:'📻', title:'Stay tuned to local news', body:'Follow Bangladesh Betar, BTV, and DMB alerts for official updates.' },
+    { ico:'🎒', title:'Prepare your emergency kit', body:'Essentials: documents, medicine, water, food, torch, phone charger.' },
+    { ico:'👨‍👩‍👧', title:'Account for your household', body:'Identify a meeting point if you get separated. Share your location.' },
+    { ico:'📞', title:'Keep emergency numbers handy', body:'Police: 999 | Fire: 999 | BDRCS: 01713-038989 | DMB: 01938-524500' },
+  ],
+};
+TIPS.drought = TIPS.drought; // already defined above
+
+/* Haversine distance in km */
+function haversine(la1, lo1, la2, lo2) {
+  var R  = 6371;
+  var dL = (la2-la1) * Math.PI/180;
+  var dO = (lo2-lo1) * Math.PI/180;
+  var a  = Math.sin(dL/2)*Math.sin(dL/2) +
+           Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
+           Math.sin(dO/2)*Math.sin(dO/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* Called every time myLat/myLng updates OR a new report arrives */
+function checkProximity(reportList) {
+  if (myLat === null) return;
+  reportList.forEach(function(r) {
+    if (warnedIds.has(r.id)) return;
+    var km = haversine(myLat, myLng, r.lat, r.lng);
+    if (km <= WARN_RADIUS_KM) {
+      warnedIds.add(r.id);
+      showWarning(r, km);
+    }
+  });
+}
+
+/* Build and show the warning banner */
+function showWarning(r, km) {
+  warnReport = r;
+  var info   = DI[r.type] || DI.other;
+  var col    = SC[r.severity] || '#6b7280';
+  var tips   = TIPS[r.type]  || TIPS.other;
+  var isBad  = r.severity === 'critical' || r.severity === 'high';
+
+  // Banner bar background + text colour based on severity
+  var barBg  = {critical:'#c8192b', high:'#c96a00', medium:'#a16207', low:'#1a7c3e'}[r.severity] || '#18170f';
+  var sevBg  = {critical:'#fee2e2', high:'#fff3e0', medium:'#fefce8', low:'#e8f5e9'}[r.severity] || '#f1efeb';
+  var eyebrow = isBad ? '🚨 Danger — Disaster Nearby' : '⚠ Proximity Alert — ' + r.severity;
+
+  // Bar
+  var bar = document.getElementById('warn-bar');
+  bar.style.background = barBg;
+  bar.style.color      = '#fff';
+
+  document.getElementById('warn-bar-icon').textContent    = info.e;
+  document.getElementById('warn-eyebrow').textContent     = eyebrow;
+  document.getElementById('warn-title-text').textContent  = r.title;
+  document.getElementById('warn-distance').textContent    = km.toFixed(1) + ' km away';
+
+  // Panel desc
+  var descEl = document.getElementById('warn-desc');
+  descEl.textContent      = r.desc || ('A ' + (info.label||'disaster') + ' has been reported near your location.');
+  descEl.style.borderColor = col;
+  descEl.style.background  = sevBg;
+  descEl.style.color       = 'var(--sub)';
+
+  // Tips
+  var grid = document.getElementById('tips-grid');
+  grid.innerHTML = '';
+  tips.slice(0, 4).forEach(function(tip) {
+    var card = document.createElement('div');
+    card.className = 'tip-card';
+    card.innerHTML =
+      '<div class="tip-ico">' + tip.ico + '</div>' +
+      '<div class="tip-text"><strong>' + esc(tip.title) + '</strong>' + esc(tip.body) + '</div>';
+    grid.appendChild(card);
+  });
+
+  // Locate button
+  document.getElementById('warn-btn-locate').style.background = col;
+
+  // Show banner — start collapsed, then auto-expand for critical/high
+  var banner = document.getElementById('warn-banner');
+  banner.classList.remove('expanded');
+  banner.classList.add('show');
+  if (isBad) {
+    setTimeout(function(){ banner.classList.add('expanded'); }, 420);
+  }
+
+  // Pulse marker
+  if (rMarkers[r.id]) {
+    var el = rMarkers[r.id].getElement();
+    if (el) { var cm = el.querySelector('.cm'); if (cm) cm.classList.add('warn-pulse'); }
+  }
+}
+
+function toggleWarnExpand() {
+  document.getElementById('warn-banner').classList.toggle('expanded');
+}
+
+function closeWarn() {
+  var banner = document.getElementById('warn-banner');
+  banner.classList.remove('show', 'expanded');
+  if (warnReport && rMarkers[warnReport.id]) {
+    var el = rMarkers[warnReport.id].getElement();
+    if (el) { var cm = el.querySelector('.cm'); if (cm) cm.classList.remove('warn-pulse'); }
+  }
+}
+
+function flyToWarnReport() {
+  closeWarn();
+  if (warnReport && rMarkers[warnReport.id]) {
+    map.setView([warnReport.lat, warnReport.lng], 11, {animate:true});
+    rMarkers[warnReport.id].openPopup();
+  }
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ═══════════════════════════════════════════
+   MY DISTRICT PERSONALISATION
+   Detects which district the reporter is in
+   using their GPS coords + bbox lookup,
+   then shows their INFORM risk profile.
+═══════════════════════════════════════════ */
+
+// District bounding boxes [x0,y0,x1,y1] = [minLng,minLat,maxLng,maxLat]
+// Same data as risk-map.html DIST_DATA
+var RISK_DISTRICTS = [
+  {n:'Sunamganj',dv:'Sylhet',x0:90.8,y0:24.7,x1:92.3,y1:25.4,fl:8.8,dr:2.0,ov:7.2,vu:7.3,cp:7.5},
+  {n:'Sylhet',dv:'Sylhet',x0:91.6,y0:24.5,x1:92.6,y1:25.2,fl:7.6,dr:2.3,ov:6.3,vu:6.5,cp:6.8},
+  {n:'Moulvibazar',dv:'Sylhet',x0:91.5,y0:24.1,x1:92.4,y1:24.8,fl:7.1,dr:2.6,ov:6.0,vu:6.3,cp:6.7},
+  {n:'Habiganj',dv:'Sylhet',x0:91.0,y0:24.0,x1:91.8,y1:24.8,fl:7.4,dr:2.4,ov:6.2,vu:6.5,cp:6.8},
+  {n:'Netrokona',dv:'Mymensingh',x0:90.4,y0:24.5,x1:91.2,y1:25.2,fl:7.6,dr:2.8,ov:6.4,vu:6.7,cp:7.0},
+  {n:'Mymensingh',dv:'Mymensingh',x0:89.9,y0:24.4,x1:90.8,y1:25.1,fl:7.2,dr:3.0,ov:6.1,vu:6.4,cp:6.7},
+  {n:'Sherpur',dv:'Mymensingh',x0:89.6,y0:24.8,x1:90.4,y1:25.4,fl:7.4,dr:3.1,ov:6.2,vu:6.6,cp:6.9},
+  {n:'Jamalpur',dv:'Mymensingh',x0:89.3,y0:24.6,x1:90.1,y1:25.4,fl:7.8,dr:3.2,ov:6.5,vu:6.8,cp:7.0},
+  {n:'Kishoreganj',dv:'Dhaka',x0:90.3,y0:24.1,x1:91.2,y1:24.8,fl:7.9,dr:2.9,ov:6.6,vu:6.9,cp:7.1},
+  {n:'Brahmanbaria',dv:'Chattogram',x0:90.9,y0:23.6,x1:91.7,y1:24.4,fl:7.2,dr:2.5,ov:6.1,vu:6.4,cp:6.8},
+  {n:'Narsingdi',dv:'Dhaka',x0:90.4,y0:23.7,x1:91.0,y1:24.2,fl:6.5,dr:3.0,ov:5.6,vu:5.9,cp:6.2},
+  {n:'Narayanganj',dv:'Dhaka',x0:90.3,y0:23.4,x1:90.8,y1:23.9,fl:6.2,dr:3.1,ov:5.4,vu:5.6,cp:5.8},
+  {n:'Dhaka',dv:'Dhaka',x0:90.1,y0:23.6,x1:90.8,y1:24.1,fl:5.2,dr:3.2,ov:4.8,vu:4.5,cp:4.9},
+  {n:'Gazipur',dv:'Dhaka',x0:90.1,y0:23.9,x1:90.7,y1:24.4,fl:5.5,dr:3.0,ov:5.0,vu:4.8,cp:5.2},
+  {n:'Manikganj',dv:'Dhaka',x0:89.7,y0:23.6,x1:90.3,y1:24.1,fl:7.3,dr:3.1,ov:6.1,vu:6.5,cp:6.8},
+  {n:'Munshiganj',dv:'Dhaka',x0:90.3,y0:23.2,x1:90.8,y1:23.7,fl:6.8,dr:3.0,ov:5.9,vu:6.2,cp:6.6},
+  {n:'Tangail',dv:'Dhaka',x0:89.6,y0:24.0,x1:90.4,y1:24.6,fl:7.1,dr:3.3,ov:6.0,vu:6.3,cp:6.6},
+  {n:'Rajbari',dv:'Dhaka',x0:89.3,y0:23.4,x1:89.9,y1:23.9,fl:7.4,dr:3.4,ov:6.2,vu:6.6,cp:6.8},
+  {n:'Faridpur',dv:'Dhaka',x0:89.5,y0:23.1,x1:90.2,y1:23.7,fl:7.5,dr:3.5,ov:6.3,vu:6.6,cp:6.9},
+  {n:'Madaripur',dv:'Dhaka',x0:89.9,y0:22.8,x1:90.5,y1:23.4,fl:7.6,dr:2.7,ov:6.3,vu:6.7,cp:6.9},
+  {n:'Shariatpur',dv:'Dhaka',x0:90.2,y0:23.0,x1:90.8,y1:23.5,fl:7.8,dr:2.6,ov:6.5,vu:6.8,cp:7.0},
+  {n:'Gopalganj',dv:'Dhaka',x0:89.7,y0:22.7,x1:90.2,y1:23.2,fl:7.7,dr:2.8,ov:6.4,vu:6.8,cp:7.0},
+  {n:'Chandpur',dv:'Chattogram',x0:90.6,y0:23.0,x1:91.1,y1:23.6,fl:7.4,dr:2.3,ov:6.2,vu:6.6,cp:6.9},
+  {n:'Lakshmipur',dv:'Chattogram',x0:90.7,y0:22.7,x1:91.2,y1:23.3,fl:7.6,dr:2.2,ov:6.3,vu:6.7,cp:7.0},
+  {n:'Cumilla',dv:'Chattogram',x0:90.9,y0:23.3,x1:91.6,y1:24.0,fl:6.8,dr:2.7,ov:5.9,vu:6.1,cp:6.5},
+  {n:'Feni',dv:'Chattogram',x0:91.2,y0:22.9,x1:91.7,y1:23.3,fl:6.5,dr:2.5,ov:5.7,vu:6.0,cp:6.4},
+  {n:'Noakhali',dv:'Chattogram',x0:90.9,y0:22.5,x1:91.5,y1:23.2,fl:7.8,dr:2.1,ov:6.5,vu:6.9,cp:7.2},
+  {n:'Chattogram',dv:'Chattogram',x0:91.5,y0:22.1,x1:92.1,y1:22.8,fl:5.8,dr:2.6,ov:5.5,vu:5.2,cp:5.6},
+  {n:"Cox's Bazar",dv:'Chattogram',x0:91.7,y0:21.1,x1:92.4,y1:22.1,fl:6.2,dr:2.4,ov:6.5,vu:7.0,cp:7.6},
+  {n:'Rangamati',dv:'Chattogram',x0:91.8,y0:22.3,x1:92.7,y1:23.4,fl:5.2,dr:3.0,ov:5.9,vu:6.5,cp:7.6},
+  {n:'Khagrachhari',dv:'Chattogram',x0:91.6,y0:22.9,x1:92.5,y1:23.8,fl:5.3,dr:3.1,ov:5.9,vu:6.6,cp:7.7},
+  {n:'Bandarban',dv:'Chattogram',x0:92.0,y0:21.4,x1:92.7,y1:22.5,fl:5.1,dr:2.8,ov:5.8,vu:6.5,cp:7.8},
+  {n:'Bogura',dv:'Rajshahi',x0:88.9,y0:24.5,x1:89.6,y1:25.2,fl:6.8,dr:4.8,ov:5.9,vu:6.2,cp:6.5},
+  {n:'Sirajganj',dv:'Rajshahi',x0:89.3,y0:24.0,x1:89.9,y1:24.7,fl:8.6,dr:3.8,ov:7.0,vu:7.2,cp:7.4},
+  {n:'Natore',dv:'Rajshahi',x0:88.7,y0:24.1,x1:89.4,y1:24.7,fl:6.2,dr:5.9,ov:5.8,vu:6.1,cp:6.3},
+  {n:'Pabna',dv:'Rajshahi',x0:89.0,y0:23.7,x1:89.7,y1:24.2,fl:7.0,dr:4.9,ov:6.1,vu:6.4,cp:6.6},
+  {n:'Naogaon',dv:'Rajshahi',x0:88.4,y0:24.4,x1:89.2,y1:25.1,fl:5.5,dr:6.8,ov:5.9,vu:6.2,cp:6.4},
+  {n:'Rajshahi',dv:'Rajshahi',x0:88.1,y0:24.1,x1:88.9,y1:24.6,fl:4.8,dr:7.4,ov:5.8,vu:6.0,cp:6.2},
+  {n:'Chapai Nawabganj',dv:'Rajshahi',x0:87.9,y0:24.4,x1:88.6,y1:24.9,fl:5.1,dr:7.2,ov:6.0,vu:6.3,cp:6.5},
+  {n:'Joypurhat',dv:'Rajshahi',x0:88.9,y0:24.9,x1:89.5,y1:25.4,fl:5.8,dr:5.6,ov:5.6,vu:5.9,cp:6.2},
+  {n:'Kushtia',dv:'Khulna',x0:88.7,y0:23.5,x1:89.3,y1:24.0,fl:5.6,dr:6.5,ov:5.9,vu:6.2,cp:6.4},
+  {n:'Chuadanga',dv:'Khulna',x0:88.5,y0:23.4,x1:89.1,y1:23.9,fl:4.2,dr:6.8,ov:5.8,vu:6.1,cp:6.4},
+  {n:'Meherpur',dv:'Khulna',x0:88.4,y0:23.5,x1:88.8,y1:23.9,fl:4.5,dr:6.9,ov:5.8,vu:6.1,cp:6.3},
+  {n:'Jhenaidah',dv:'Khulna',x0:88.8,y0:23.0,x1:89.4,y1:23.6,fl:4.8,dr:6.2,ov:5.5,vu:5.9,cp:6.1},
+  {n:'Magura',dv:'Khulna',x0:89.3,y0:23.1,x1:89.7,y1:23.5,fl:5.9,dr:5.4,ov:5.7,vu:6.0,cp:6.3},
+  {n:'Jashore',dv:'Khulna',x0:88.9,y0:22.8,x1:89.5,y1:23.4,fl:5.5,dr:5.9,ov:5.6,vu:5.8,cp:6.0},
+  {n:'Narail',dv:'Khulna',x0:89.3,y0:22.8,x1:89.7,y1:23.2,fl:6.8,dr:4.1,ov:5.9,vu:6.2,cp:6.5},
+  {n:'Khulna',dv:'Khulna',x0:89.2,y0:22.3,x1:89.7,y1:22.9,fl:7.2,dr:3.8,ov:6.1,vu:6.3,cp:6.6},
+  {n:'Satkhira',dv:'Khulna',x0:88.8,y0:22.1,x1:89.3,y1:22.8,fl:7.9,dr:3.5,ov:6.6,vu:6.9,cp:7.1},
+  {n:'Bagerhat',dv:'Khulna',x0:89.4,y0:22.3,x1:89.9,y1:22.9,fl:8.1,dr:3.6,ov:6.8,vu:7.0,cp:7.2},
+  {n:'Kurigram',dv:'Rangpur',x0:89.3,y0:25.5,x1:89.9,y1:26.0,fl:8.7,dr:3.4,ov:7.1,vu:7.4,cp:7.6},
+  {n:'Lalmonirhat',dv:'Rangpur',x0:89.1,y0:25.6,x1:89.6,y1:26.1,fl:8.1,dr:3.5,ov:6.7,vu:7.0,cp:7.2},
+  {n:'Nilphamari',dv:'Rangpur',x0:88.6,y0:25.7,x1:89.2,y1:26.2,fl:7.2,dr:4.0,ov:6.2,vu:6.5,cp:6.8},
+  {n:'Rangpur',dv:'Rangpur',x0:88.9,y0:25.4,x1:89.6,y1:25.9,fl:7.6,dr:4.1,ov:6.4,vu:6.7,cp:6.9},
+  {n:'Gaibandha',dv:'Rangpur',x0:89.3,y0:25.1,x1:89.8,y1:25.6,fl:8.4,dr:3.6,ov:6.9,vu:7.1,cp:7.3},
+  {n:'Dinajpur',dv:'Rangpur',x0:88.3,y0:25.5,x1:89.0,y1:26.2,fl:5.9,dr:5.2,ov:5.7,vu:6.0,cp:6.3},
+  {n:'Panchagarh',dv:'Rangpur',x0:88.3,y0:26.1,x1:88.8,y1:26.6,fl:6.2,dr:4.5,ov:5.8,vu:6.1,cp:6.4},
+  {n:'Thakurgaon',dv:'Rangpur',x0:88.2,y0:25.9,x1:88.7,y1:26.3,fl:6.5,dr:4.8,ov:5.9,vu:6.2,cp:6.5},
+  {n:'Bhola',dv:'Barisal',x0:90.5,y0:22.2,x1:91.2,y1:22.9,fl:8.5,dr:1.6,ov:6.9,vu:7.3,cp:7.2},
+  {n:'Patuakhali',dv:'Barisal',x0:90.1,y0:21.9,x1:90.8,y1:22.5,fl:8.3,dr:1.9,ov:6.8,vu:7.2,cp:7.3},
+  {n:'Barguna',dv:'Barisal',x0:89.8,y0:21.8,x1:90.4,y1:22.3,fl:8.2,dr:1.8,ov:6.7,vu:7.1,cp:7.4},
+  {n:'Pirojpur',dv:'Barisal',x0:89.8,y0:22.3,x1:90.2,y1:22.8,fl:7.9,dr:2.2,ov:6.5,vu:6.9,cp:7.1},
+  {n:'Barisal',dv:'Barisal',x0:90.1,y0:22.4,x1:90.6,y1:22.9,fl:7.8,dr:2.1,ov:6.4,vu:6.8,cp:7.1},
+  {n:'Jhalokathi',dv:'Barisal',x0:90.0,y0:22.4,x1:90.4,y1:22.7,fl:7.6,dr:2.0,ov:6.3,vu:6.7,cp:7.0},
+];
+
+var myDistrict    = null;   // detected district object
+var cardShown     = false;  // only show once per session
+
+function findMyDistrict(lat, lng) {
+  for (var i = 0; i < RISK_DISTRICTS.length; i++) {
+    var d = RISK_DISTRICTS[i];
+    if (lng >= d.x0 && lng <= d.x1 && lat >= d.y0 && lat <= d.y1) return d;
+  }
+  return null;
+}
+
+function sevColor(s) {
+  if (s >= 8) return '#c8192b';
+  if (s >= 6) return '#c96a00';
+  if (s >= 4) return '#a16207';
+  return '#15803d';
+}
+function sevLabel(s) {
+  if (s >= 8) return 'VERY HIGH RISK';
+  if (s >= 6) return 'HIGH RISK';
+  if (s >= 4) return 'MEDIUM RISK';
+  if (s >= 2) return 'LOW RISK';
+  return 'VERY LOW RISK';
+}
+function sevBg(s) {
+  if (s >= 8) return '#fee2e2';
+  if (s >= 6) return '#fff3e0';
+  if (s >= 4) return '#fefce8';
+  return '#f0fdf4';
+}
+
+function showDistrictCard(d) {
+  myDistrict = d;
+  var ov = d.ov;
+
+  document.getElementById('mdc-icon').style.background = sevBg(ov);
+  document.getElementById('mdc-icon').textContent =
+    ov >= 7 ? '⚠' : ov >= 5 ? '📊' : '✅';
+
+  document.getElementById('mdc-title').textContent = '📍 You are in ' + d.n;
+  document.getElementById('mdc-sub').textContent   = d.dv + ' Division · INFORM Risk Profile';
+
+  setMdcBar('fl', d.fl);
+  setMdcBar('dr', d.dr);
+  setMdcBar('ov', d.ov);
+  setMdcBar('vu', d.vu);
+
+  var badge = document.getElementById('mdc-badge');
+  badge.textContent         = sevLabel(ov);
+  badge.style.background    = sevBg(ov);
+  badge.style.color         = sevColor(ov);
+
+  document.getElementById('mdc-link').href = '/risk-map';
+
+  document.getElementById('my-district-card').classList.add('show');
+  cardShown = true;
+}
+
+function setMdcBar(key, val) {
+  var col = sevColor(val);
+  document.getElementById('mdc-' + key + '-bar').style.width      = (val / 10 * 100).toFixed(0) + '%';
+  document.getElementById('mdc-' + key + '-bar').style.background = col;
+  document.getElementById('mdc-' + key + '-val').textContent       = val.toFixed(1);
+  document.getElementById('mdc-' + key + '-val').style.color       = col;
+}
+
+function closeDistrictCard() {
+  document.getElementById('my-district-card').classList.remove('show');
+}
+
+// Hook into the GPS position — detect district on first fix
+var _origStartGPS = startGPS;
+startGPS = function() {
+  _origStartGPS();
+  // Also try once immediately with getCurrentPosition for faster first result
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(p) {
+      var la = p.coords.latitude, lo = p.coords.longitude;
+      if (!cardShown && la > 19 && la < 28 && lo > 87 && lo < 93) {
+        var d = findMyDistrict(la, lo);
+        if (d) showDistrictCard(d);
+      }
+    }, null, { enableHighAccuracy: true, timeout: 8000 });
+  }
+};
+
+</script>
+
+<!-- PROXIMITY WARNING BANNER -->
+<div id="warn-banner" role="alert">
+  <!-- Collapsed bar — click to expand -->
+  <div class="warn-bar" id="warn-bar" onclick="toggleWarnExpand()">
+    <div class="warn-bar-icon" id="warn-bar-icon"></div>
+    <div class="warn-bar-text">
+      <div class="warn-bar-eyebrow" id="warn-eyebrow">⚠ Proximity Alert</div>
+      <div class="warn-bar-title"   id="warn-title-text"></div>
+    </div>
+    <div class="warn-bar-km" id="warn-distance"></div>
+    <div class="warn-expand-icon">▼</div>
+    <button class="warn-bar-close" onclick="event.stopPropagation();closeWarn()" title="Dismiss">✕</button>
+  </div>
+  <!-- Expanded tips panel -->
+  <div class="warn-panel">
+    <div class="warn-panel-inner">
+      <div class="warn-panel-left">
+        <div class="warn-desc" id="warn-desc"></div>
+        <div class="tips-label">What to do right now</div>
+        <div class="tips-grid" id="tips-grid"></div>
+      </div>
+      <div class="warn-panel-actions">
+        <button class="warn-btn-locate" id="warn-btn-locate" onclick="flyToWarnReport()">📍 Show on Map</button>
+        <button class="warn-btn-dismiss" onclick="closeWarn()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- MY DISTRICT RISK CARD -->
+<div id="my-district-card">
+  <div class="mdc-header">
+    <div class="mdc-icon" id="mdc-icon">📍</div>
+    <div>
+      <div class="mdc-title" id="mdc-title">Your District</div>
+      <div class="mdc-sub"  id="mdc-sub">INFORM Risk Profile</div>
+    </div>
+    <button class="mdc-close" onclick="closeDistrictCard()" title="Dismiss">✕</button>
+  </div>
+  <div class="mdc-body">
+    <div>
+      <div class="mdc-row-label">🌊 Flood Hazard</div>
+      <div class="mdc-bar-wrap">
+        <div class="mdc-bar-bg"><div class="mdc-bar-fill" id="mdc-fl-bar"></div></div>
+        <div class="mdc-bar-val" id="mdc-fl-val"></div>
+      </div>
+    </div>
+    <div>
+      <div class="mdc-row-label">☀ Drought Hazard</div>
+      <div class="mdc-bar-wrap">
+        <div class="mdc-bar-bg"><div class="mdc-bar-fill" id="mdc-dr-bar"></div></div>
+        <div class="mdc-bar-val" id="mdc-dr-val"></div>
+      </div>
+    </div>
+    <div>
+      <div class="mdc-row-label">⚡ Overall INFORM Risk</div>
+      <div class="mdc-bar-wrap">
+        <div class="mdc-bar-bg"><div class="mdc-bar-fill" id="mdc-ov-bar"></div></div>
+        <div class="mdc-bar-val" id="mdc-ov-val"></div>
+      </div>
+    </div>
+    <div>
+      <div class="mdc-row-label">👥 Vulnerability</div>
+      <div class="mdc-bar-wrap">
+        <div class="mdc-bar-bg"><div class="mdc-bar-fill" id="mdc-vu-bar"></div></div>
+        <div class="mdc-bar-val" id="mdc-vu-val"></div>
+      </div>
+    </div>
+  </div>
+  <div class="mdc-footer">
+    <span class="mdc-badge" id="mdc-badge"></span>
+    <a class="mdc-link" id="mdc-link" href="/risk-map" target="_blank">View full risk map ↗</a>
+  </div>
+</div>
+
+</body>
+</html>
