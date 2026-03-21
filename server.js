@@ -949,6 +949,7 @@ io.on('connection', socket => {
 
   // ── Rescuer events (Flutter app) ────────────────────────────────
   socket.on('rescuer:join', data => {
+    console.log(`[Rescuer] Join attempt from ${id} — code: "${data.code}", name: "${data.name}"`);
     const code = (data.code || '').trim();
     if (code !== RESCUER_CODE) {
       socket.emit('rescuer:rejected', { reason: 'Invalid team code' });
