@@ -423,6 +423,61 @@ app.post('/api/risk-pipeline/run', (req, res) => {
   runPipeline('manual-api');
 });
 
+// POST /api/rescuer/join — HTTP join endpoint (more reliable than socket for initial handshake)
+app.post('/api/rescuer/join', (req, res) => {
+  const { name, team, code, lat, lng, socketId } = req.body;
+  if (!name || !team || !code) return res.status(400).json({ ok:false, error:'Missing fields' });
+  if (code !== RESCUER_CODE) return res.status(403).json({ ok:false, error:'Invalid team code' });
+  // Store rescuer — socket will update lat/lng as GPS streams
+  const id = socketId || ('http_' + Date.now());
+  rescuers[id] = {
+    id, name: name.slice(0,60), team: team.slice(0,60),
+    status: 'available',
+    lat: parseFloat(lat)||23.7, lng: parseFloat(lng)||90.35,
+    lastSeen: new Date().toISOString(),
+    trail: [],
+  };
+  broadcastRescuers();
+  console.log(`[Rescuer] HTTP join: ${name} / ${team}`);
+  res.json({ ok:true, id, name, team });
+});
+
+// POST /api/rescuer/move — HTTP GPS update
+app.post('/api/rescuer/move', (req, res) => {
+  const { id, lat, lng } = req.body;
+  if (!id || !rescuers[id]) return res.status(404).json({ ok:false, error:'Rescuer not found' });
+  rescuers[id].trail.push({ lat: rescuers[id].lat, lng: rescuers[id].lng });
+  if (rescuers[id].trail.length > 15) rescuers[id].trail.shift();
+  rescuers[id].lat = parseFloat(lat);
+  rescuers[id].lng = parseFloat(lng);
+  rescuers[id].lastSeen = new Date().toISOString();
+  io.emit('rescuer:moved', { id, lat: rescuers[id].lat, lng: rescuers[id].lng, trail: rescuers[id].trail });
+  res.json({ ok:true });
+});
+
+// POST /api/rescuer/status — HTTP status update
+app.post('/api/rescuer/status', (req, res) => {
+  const { id, status } = req.body;
+  if (!id || !rescuers[id]) return res.status(404).json({ ok:false, error:'Rescuer not found' });
+  const valid = ['available','on_mission','unreachable'];
+  if (!valid.includes(status)) return res.status(400).json({ ok:false, error:'Invalid status' });
+  rescuers[id].status = status;
+  rescuers[id].lastSeen = new Date().toISOString();
+  broadcastRescuers();
+  res.json({ ok:true });
+});
+
+// DELETE /api/rescuer/leave — HTTP leave
+app.delete('/api/rescuer/leave', (req, res) => {
+  const { id } = req.body;
+  if (id && rescuers[id]) {
+    delete rescuers[id];
+    broadcastRescuers();
+    console.log(`[Rescuer] HTTP leave: ${id}`);
+  }
+  res.json({ ok:true });
+});
+
 // GET /api/rescuers — current rescuer positions (for external dashboards)
 app.get('/api/rescuers', (req, res) => {
   res.json({ ok: true, count: Object.keys(rescuers).length, rescuers: Object.values(rescuers) });
