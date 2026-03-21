@@ -491,9 +491,9 @@ app.delete('/api/rescuer/leave', (req, res) => {
 
 // GET /api/rescuers — current rescuer positions (for external dashboards)
 app.get('/api/rescuers', (req, res) => {
+  console.log('[Rescuer] GET /api/rescuers called');
   res.json({ ok: true, count: Object.keys(rescuers).length, rescuers: Object.values(rescuers) });
 });
-
 // GET /api/rescuer-code — for testing (dev only)
 // app.get('/api/rescuer-code', (_, res) => res.json({ code: RESCUER_CODE }));
 
