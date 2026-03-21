@@ -48,6 +48,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Rescuer state (declared early so HTTP routes can use it) ───────
+const RESCUER_CODE = process.env.RESCUER_CODE;
+if (!RESCUER_CODE) {
+  console.error('❌ RESCUER_CODE environment variable not set. Set it in Railway Variables.');
+  process.exit(1);
+}
+const rescuers = {};
+function broadcastRescuers() {
+  io.emit('rescuers:list', Object.values(rescuers));
+}
+
 // ── Static files & pages ─────────────────────────────────────────
 app.use(express.static(__dirname));
 app.get('/',               (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -901,17 +912,6 @@ app.post('/api/report', (req, res) => {
 //  Rescuers shown on reporter map with distinct helmet markers
 //  Team code: process.env.RESCUER_CODE or 'RESCUE2025'
 // ════════════════════════════════════════════════════════════════════
-
-const RESCUER_CODE = process.env.RESCUER_CODE;
-if (!RESCUER_CODE) {
-  console.error('❌ RESCUER_CODE environment variable not set. Set it in Railway Variables.');
-  process.exit(1);
-}
-const rescuers = {};   // { socketId: { id, name, team, status, lat, lng, lastSeen, trail[] } }
-
-function broadcastRescuers() {
-  io.emit('rescuers:list', Object.values(rescuers));
-}
 
 // ── In-memory state ──────────────────────────────────────────────
 const reports   = [];
