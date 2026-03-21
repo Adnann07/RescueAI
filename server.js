@@ -401,6 +401,14 @@ app.post('/api/risk-pipeline/run', (req, res) => {
   runPipeline('manual-api');
 });
 
+// GET /api/rescuers — current rescuer positions (for external dashboards)
+app.get('/api/rescuers', (req, res) => {
+  res.json({ ok: true, count: Object.keys(rescuers).length, rescuers: Object.values(rescuers) });
+});
+
+// GET /api/rescuer-code — for testing (dev only)
+// app.get('/api/rescuer-code', (_, res) => res.json({ code: RESCUER_CODE }));
+
 // GET /api/gdacs — raw XML proxy (unchanged behaviour)
 app.get('/api/gdacs', (req, res) => {
   fetchGDACSXML()
@@ -809,6 +817,25 @@ app.post('/api/report', (req, res) => {
   }
 });
 
+
+// ════════════════════════════════════════════════════════════════════
+//  RESCUER TRACKING
+//  Flutter app connects via Socket.io, sends GPS + name/team/status
+//  Rescuers shown on reporter map with distinct helmet markers
+//  Team code: process.env.RESCUER_CODE or 'RESCUE2025'
+// ════════════════════════════════════════════════════════════════════
+
+const RESCUER_CODE = process.env.RESCUER_CODE;
+if (!RESCUER_CODE) {
+  console.error('❌ RESCUER_CODE environment variable not set. Set it in Railway Variables.');
+  process.exit(1);
+}
+const rescuers = {};   // { socketId: { id, name, team, status, lat, lng, lastSeen, trail[] } }
+
+function broadcastRescuers() {
+  io.emit('rescuers:list', Object.values(rescuers));
+}
+
 // ── In-memory state ──────────────────────────────────────────────
 const reports   = [];
 const liveUsers = {};
@@ -833,7 +860,7 @@ io.on('connection', socket => {
   const id = socket.id;
   console.log(`[+] ${id}  (total: ${io.engine.clientsCount})`);
 
-  socket.emit('init', { reports, users: Object.values(liveUsers), yourId: id });
+  socket.emit('init', { reports, users: Object.values(liveUsers), yourId: id, rescuers: Object.values(rescuers) });
 
   // Send current pipeline state immediately on connect
   socket.emit('pipeline:update', {
@@ -897,9 +924,63 @@ io.on('connection', socket => {
   // Risk map search sync
   socket.on('risk:search', data => { socket.broadcast.emit('risk:search', data); });
 
+
+  // ── Rescuer events (Flutter app) ────────────────────────────────
+  socket.on('rescuer:join', data => {
+    const code = (data.code || '').trim();
+    if (code !== RESCUER_CODE) {
+      socket.emit('rescuer:rejected', { reason: 'Invalid team code' });
+      console.log(`[Rescuer] Rejected join — wrong code from ${id}`);
+      return;
+    }
+    rescuers[id] = {
+      id,
+      name:     (data.name  || 'Rescuer').slice(0, 60),
+      team:     (data.team  || 'Field Team').slice(0, 60),
+      status:   data.status || 'available',  // available | on_mission | unreachable
+      lat:      parseFloat(data.lat) || 23.7,
+      lng:      parseFloat(data.lng) || 90.35,
+      lastSeen: new Date().toISOString(),
+      trail:    [],
+    };
+    socket.emit('rescuer:accepted', { id, code: RESCUER_CODE });
+    broadcastRescuers();
+    console.log(`[Rescuer] Joined: ${rescuers[id].name} / ${rescuers[id].team}`);
+  });
+
+  socket.on('rescuer:move', data => {
+    if (!rescuers[id]) return;
+    const lat = parseFloat(data.lat);
+    const lng = parseFloat(data.lng);
+    if (isNaN(lat) || isNaN(lng)) return;
+    // Keep trail of last 15 positions
+    rescuers[id].trail.push({ lat: rescuers[id].lat, lng: rescuers[id].lng });
+    if (rescuers[id].trail.length > 15) rescuers[id].trail.shift();
+    rescuers[id].lat      = lat;
+    rescuers[id].lng      = lng;
+    rescuers[id].lastSeen = new Date().toISOString();
+    io.emit('rescuer:moved', { id, lat, lng, trail: rescuers[id].trail });
+  });
+
+  socket.on('rescuer:status', data => {
+    if (!rescuers[id]) return;
+    const valid = ['available', 'on_mission', 'unreachable'];
+    if (!valid.includes(data.status)) return;
+    rescuers[id].status   = data.status;
+    rescuers[id].lastSeen = new Date().toISOString();
+    broadcastRescuers();
+    console.log(`[Rescuer] ${rescuers[id].name} → ${data.status}`);
+  });
+
   socket.on('disconnect', () => {
-    console.log(`[-] ${liveUsers[id]?.name||id}`);
+
+    console.log(`[-] ${liveUsers[id]?.name||rescuers[id]?.name||id}`);
     delete liveUsers[id];
+    if (rescuers[id]) {
+      console.log(`[Rescuer] Disconnected: ${rescuers[id].name}`);
+      delete rescuers[id];
+      broadcastRescuers();
+    }
     io.emit('user:left', { id });
     broadcastUsers();
   });
@@ -914,7 +995,10 @@ server.listen(PORT, () => {
   console.log(`   /live-disasters → GDACS real-world data`);
   console.log(`   /risk-map       → Automated risk pipeline map`);
   console.log(`   /api/risk-pipeline → Pipeline results (JSON)`);
-  console.log(`   POST /api/risk-pipeline/run → Trigger manually\n`);
+  console.log(`   /api/rescuers      → Live rescuer positions (JSON)`);
+  console.log(`   /api/infrastructure→ OSM hospitals (JSON)`);
+  console.log(`   POST /api/risk-pipeline/run → Trigger manually`);
+  console.log(`\n🔑 RESCUER_CODE is ${RESCUER_CODE ? 'set ✅' : 'NOT SET ❌'}\n`);
 
   // Run pipeline immediately on start, then every 3 hours
   runPipeline('startup');
