@@ -570,144 +570,6 @@ header {
 }
 
 
-/* ── AI BRIEFING PANEL ── */
-.briefing-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.55);
-  z-index:2000; display:none; align-items:flex-end;
-  justify-content:center; backdrop-filter:blur(2px);
-}
-.briefing-overlay.show { display:flex; }
-
-.briefing-panel {
-  background:#fff; border-radius:18px 18px 0 0;
-  width:100%; max-width:680px; max-height:88vh;
-  display:flex; flex-direction:column;
-  box-shadow:0 -8px 40px rgba(0,0,0,.2);
-  animation:slide-up .28s cubic-bezier(.32,.72,0,1);
-}
-@keyframes slide-up { from{transform:translateY(100%)} to{transform:translateY(0)} }
-
-.bp-header {
-  padding:20px 22px 14px; border-bottom:1px solid #e2e8f0;
-  display:flex; align-items:flex-start; gap:12px; flex-shrink:0;
-}
-.bp-icon {
-  width:42px; height:42px; border-radius:11px; flex-shrink:0;
-  background:#eff6ff; display:flex; align-items:center;
-  justify-content:center; font-size:20px;
-}
-.bp-titles { flex:1; }
-.bp-titles h2 { font-size:16px; font-weight:700; color:#0f172a; }
-.bp-titles .bp-sub { font-size:12px; color:#64748b; margin-top:2px; }
-.bp-close {
-  width:32px; height:32px; border-radius:8px; border:none;
-  background:#f1f5f9; color:#64748b; cursor:pointer;
-  font-size:18px; display:flex; align-items:center; justify-content:center;
-  flex-shrink:0;
-}
-.bp-close:hover { background:#e2e8f0; }
-
-.bp-body { overflow-y:auto; padding:18px 22px; flex:1; }
-
-/* Alert badge */
-.bp-alert {
-  display:inline-flex; align-items:center; gap:6px;
-  border-radius:8px; padding:5px 12px; font-size:12px;
-  font-weight:700; margin-bottom:14px;
-}
-.bp-alert.CRITICAL { background:#fef2f2; color:#c8192b; border:1px solid #fecaca; }
-.bp-alert.HIGH     { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
-.bp-alert.MODERATE { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
-.bp-alert.LOW      { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
-
-/* Summary box */
-.bp-summary {
-  background:#f8fafc; border-left:3px solid #1d4ed8;
-  border-radius:0 8px 8px 0; padding:12px 14px;
-  font-size:13px; color:#334155; line-height:1.6;
-  margin-bottom:18px;
-}
-
-/* Paragraphs */
-.bp-section { margin-bottom:18px; }
-.bp-section h3 {
-  font-size:13px; font-weight:700; color:#1e3a5f;
-  text-transform:uppercase; letter-spacing:.5px;
-  margin-bottom:8px; display:flex; align-items:center; gap:8px;
-}
-.bp-section h3::after {
-  content:''; flex:1; height:1px; background:#e2e8f0;
-}
-.bp-section p {
-  font-size:13px; color:#334155; line-height:1.7;
-}
-
-/* Key actions */
-.bp-actions { display:flex; flex-direction:column; gap:7px; margin-bottom:18px; }
-.bp-action {
-  display:flex; align-items:flex-start; gap:10px;
-  padding:10px 12px; background:#f8fafc; border-radius:8px;
-  border:1px solid #e2e8f0;
-}
-.bp-action .act-num {
-  width:22px; height:22px; border-radius:6px; flex-shrink:0;
-  background:#1d4ed8; color:#fff; font-size:11px; font-weight:700;
-  display:flex; align-items:center; justify-content:center;
-}
-.bp-action span { font-size:13px; color:#0f172a; line-height:1.5; }
-
-/* Priority districts */
-.bp-districts { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
-.bp-district {
-  padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700;
-  background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;
-}
-
-/* Data footnote */
-.bp-footnote {
-  font-size:11px; color:#94a3b8; text-align:center;
-  border-top:1px solid #e2e8f0; padding-top:12px; margin-top:4px;
-}
-
-/* Footer actions */
-.bp-footer {
-  padding:14px 22px; border-top:1px solid #e2e8f0;
-  display:flex; gap:10px; flex-shrink:0;
-}
-.bp-btn {
-  flex:1; height:44px; border-radius:10px; border:none;
-  font-size:14px; font-weight:700; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  transition:opacity .15s;
-}
-.bp-btn:active { opacity:.8; }
-.bp-btn.primary { background:#1d4ed8; color:#fff; }
-.bp-btn.primary:hover { background:#1e40af; }
-.bp-btn.secondary { background:#f1f5f9; color:#334155; }
-.bp-btn.secondary:hover { background:#e2e8f0; }
-
-/* Loading state */
-.bp-loading {
-  display:flex; flex-direction:column; align-items:center;
-  justify-content:center; padding:48px 24px; gap:14px;
-}
-.bp-spinner {
-  width:36px; height:36px; border:3px solid #e2e8f0;
-  border-top-color:#1d4ed8; border-radius:50%;
-  animation:spin .8s linear infinite;
-}
-.bp-loading p { font-size:14px; color:#64748b; }
-
-/* Generate briefing button */
-.gen-briefing-btn {
-  padding:6px 13px; border-radius:var(--r);
-  border:1.5px solid #1d4ed8; background:transparent;
-  color:#1d4ed8; font-size:11px; font-weight:700;
-  cursor:pointer; white-space:nowrap; transition:all .15s;
-  display:flex; align-items:center; gap:5px;
-}
-.gen-briefing-btn:hover { background:#eff6ff; }
-
 
 /* ── VOICE REPORT ── */
 .voice-overlay {
@@ -918,9 +780,8 @@ header {
   border:1px solid rgba(255,255,255,.1); border-radius:12px;
   padding:10px 14px; min-width:180px;
   font-family:'DM Sans',-apple-system,sans-serif;
-  cursor:pointer; transition:opacity .2s;
+  transition:opacity .2s;
 }
-.pop-stat-card:hover { opacity:.92; }
 .pop-stat-label {
   font-size:9px; font-weight:700; color:rgba(255,255,255,.5);
   letter-spacing:.8px; text-transform:uppercase; margin-bottom:4px;
@@ -1053,7 +914,6 @@ header {
     <button class="rescuer-toggle" id="rescuer-toggle" onclick="toggleRescuerLayer()">Rescuers <span class="rescuer-count" id="rescuer-count">0</span></button>
     <a class="hbtn hbtn-green" href="/live-disasters" target="_blank">Live Map</a>
     <a class="hbtn" href="/risk-map" target="_blank">Risk Map</a>
-    <button class="gen-briefing-btn" onclick="openBriefing()">🧠 AI বিবরণী</button>
     <a class="hbtn hbtn-red" href="/volunteer" target="_blank">Volunteers</a>
   </div>
 </header>
@@ -1064,7 +924,7 @@ header {
   <!-- MAP -->
   <div id="map">
     <div class="map-badge">🇧🇩 Bangladesh · Reporter Map</div>
-    <div class="pop-stat-card" id="pop-stat-card" onclick="openBriefing()" title="Click for AI briefing">
+    <div class="pop-stat-card" id="pop-stat-card">
       <div class="pop-stat-label">People at High Risk</div>
       <div class="pop-stat-number" id="pop-stat-num">—<span id="pop-stat-unit"></span></div>
       <div class="pop-stat-sub" id="pop-stat-sub">Loading risk data…</div>
@@ -1236,30 +1096,7 @@ header {
 </div>
 
 
-<!-- AI BRIEFING PANEL -->
-<div class="briefing-overlay" id="briefing-overlay" onclick="if(event.target===this)closeBriefing()">
-  <div class="briefing-panel" id="briefing-panel">
-    <div class="bp-header">
-      <div class="bp-icon">🧠</div>
-      <div class="bp-titles">
-        <h2>AI পরিস্থিতি বিবরণী</h2>
-        <div class="bp-sub" id="bp-sub">Groq · llama-3.3-70b দ্বারা চালিত</div>
-      </div>
-      <button class="bp-close" onclick="closeBriefing()">✕</button>
-    </div>
-    <div class="bp-body" id="bp-body">
-      <div class="bp-loading" id="bp-loading">
-        <div class="bp-spinner"></div>
-        <p>Analysing situation data…</p>
-      </div>
-      <div id="bp-content" style="display:none"></div>
-    </div>
-    <div class="bp-footer" id="bp-footer" style="display:none">
-      <button class="bp-btn secondary" onclick="generateBriefing()">↺ Regenerate</button>
-      <button class="bp-btn primary" onclick="downloadBriefingPDF()">⬇ Download PDF</button>
-    </div>
-  </div>
-</div>
+
 
 
 
@@ -2002,176 +1839,6 @@ updateVolCount();
 setInterval(updateVolCount, 10000);
 
 
-/* ═══════════════════════════════════════════
-   AI SITUATION BRIEFING
-═══════════════════════════════════════════ */
-var lastBriefing = null;
-
-function openBriefing() {
-  document.getElementById('briefing-overlay').classList.add('show');
-  generateBriefing();
-}
-
-function closeBriefing() {
-  document.getElementById('briefing-overlay').classList.remove('show');
-}
-
-function generateBriefing() {
-  document.getElementById('bp-loading').style.display = 'flex';
-  document.getElementById('bp-content').style.display = 'none';
-  document.getElementById('bp-footer').style.display  = 'none';
-  document.getElementById('bp-sub').textContent = 'Analysing...';
-
-  var rptLines = reports.slice(0, 8).map(function(r) {
-    return (r.severity||'medium').toUpperCase()+' '+(r.type||'other')+
-           ' in '+(r.district||r.location||'Bangladesh')+': '+(r.title||'').slice(0,60);
-  }).join(' | ') || 'No field reports yet.';
-
-  var key = window.GROQ_KEY || '';
-  if (!key) {
-    document.getElementById('bp-loading').style.display = 'none';
-    document.getElementById('bp-content').style.display = 'block';
-    document.getElementById('bp-content').innerHTML =
-      '<div style="text-align:center;padding:32px;color:#c8192b">'+
-      '<div style="font-size:32px">!</div>'+
-      '<div style="font-weight:700;margin-top:8px">GROQ_KEY not configured</div>'+
-      '<div style="font-size:12px;color:#64748b;margin-top:6px">Set GROQ_API_KEY in Railway variables</div>'+
-      '</div>';
-    return;
-  }
-
-  fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+key },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 200,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role:'system', content:'You are a disaster AI. Return ONLY a JSON object. No markdown. All values under 12 words.' },
-        { role:'user',   content:'Reports: '+rptLines+'\n\nReturn: {"level":"HIGH","summary":"max 12 words","situation":"max 12 words","areas":"max 12 words","actions":["max 8 words","max 8 words","max 8 words"]}' }
-      ]
-    })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d) {
-    if (d.error) throw new Error(d.error.message || 'Groq API error');
-    var raw = (d.choices[0].message.content||'').replace(/```json|```/g,'').trim();
-    var b = JSON.parse(raw);
-    var briefing = {
-      alert_level: (b.level||'MODERATE').toUpperCase(),
-      title: 'পরিস্থিতি বিবরণী',
-      summary: b.summary||'',
-      paragraph_1: { heading:'বর্তমান পরিস্থিতি', body: b.situation||b.summary||'' },
-      paragraph_2: { heading:'ঝুঁকিপূর্ণ এলাকা',  body: b.areas||'' },
-      paragraph_3: { heading:'করণীয় পদক্ষেপ',     body: (b.actions||[]).join(' | ') },
-      key_actions: b.actions||[],
-      priority_districts: [],
-      generated_at: new Date().toLocaleString('en-BD',{timeZone:'Asia/Dhaka'}),
-      data_summary: { crowd_reports: reports.length, gdacs_events: 0 }
-    };
-    lastBriefing = briefing;
-    renderBriefing(briefing);
-  })
-  .catch(function(e) {
-    document.getElementById('bp-loading').style.display = 'none';
-    document.getElementById('bp-content').style.display = 'block';
-    document.getElementById('bp-content').innerHTML =
-      '<div style="text-align:center;padding:32px;color:#c8192b">'+
-      '<div style="font-size:32px;margin-bottom:10px">!</div>'+
-      '<div style="font-weight:700;margin-bottom:6px">Failed: '+e.message+'</div>'+
-      '</div>';
-  });
-}
-
-function renderBriefing(b) {
-  document.getElementById('bp-loading').style.display = 'none';
-
-  var alertClass = b.alert_level || 'MODERATE';
-  var alertEmoji = { CRITICAL:'🔴', HIGH:'🟠', MODERATE:'🔵', LOW:'🟢' }[alertClass] || '🔵';
-  var alertBangla = { CRITICAL:'সর্বোচ্চ সতর্কতা', HIGH:'উচ্চ সতর্কতা', MODERATE:'মাঝারি সতর্কতা', LOW:'নিম্ন সতর্কতা' }[alertClass] || alertClass;
-
-  var ds = b.data_summary || {};
-  document.getElementById('bp-sub').textContent =
-    'Generated ' + (b.generated_at || '') +
-    ' · ' + (ds.crowd_reports || 0) + ' রিপোর্ট · ' +
-    (ds.gdacs_events || 0) + ' GDACS ইভেন্ট';
-
-  var html = '';
-
-  // Alert badge
-  html += '<div class="bp-alert ' + alertClass + '">' + alertEmoji + ' ' + alertBangla + '</div>';
-
-  // Summary
-  html += '<div class="bp-summary">' + esc(b.summary || '') + '</div>';
-
-  // Three paragraphs
-  var paras = [b.paragraph_1, b.paragraph_2, b.paragraph_3];
-  paras.forEach(function(p) {
-    if (!p) return;
-    html += '<div class="bp-section"><h3>' + esc(p.heading || '') + '</h3><p>' + esc(p.body || '') + '</p></div>';
-  });
-
-  // Key actions
-  if (b.key_actions && b.key_actions.length) {
-    html += '<div class="bp-section"><h3>তাৎক্ষণিক পদক্ষেপ</h3></div>';
-    html += '<div class="bp-actions">';
-    b.key_actions.forEach(function(a, i) {
-      html += '<div class="bp-action"><div class="act-num">' + (i+1) + '</div><span>' + esc(a) + '</span></div>';
-    });
-    html += '</div>';
-  }
-
-  // Priority districts
-  if (b.priority_districts && b.priority_districts.length) {
-    html += '<div class="bp-section"><h3>অগ্রাধিকার জেলাসমূহ</h3></div>';
-    html += '<div class="bp-districts">';
-    b.priority_districts.forEach(function(d) {
-      html += '<span class="bp-district">' + esc(d) + '</span>';
-    });
-    html += '</div>';
-  }
-
-  // Footnote
-  html += '<div class="bp-footnote">AI-তৈরি বিশ্লেষণ · মাঠ দলের সাথে যাচাই করুন · জরুরি: 999</div>';
-
-  document.getElementById('bp-content').innerHTML = html;
-  document.getElementById('bp-content').style.display = 'block';
-  document.getElementById('bp-footer').style.display  = 'flex';
-}
-
-function downloadBriefingPDF() {
-  var btn = document.querySelector('.bp-btn.primary');
-  btn.textContent = '⏳ তৈরি হচ্ছে…';
-  btn.disabled = true;
-
-  fetch('/api/briefing/pdf', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ briefing: lastBriefing })
-  })
-  .then(function(r){ return r.blob(); })
-  .then(function(blob) {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'RescueAI_Briefing_' + new Date().toISOString().slice(0,10) + '.pdf';
-    a.click();
-    URL.revokeObjectURL(url);
-    btn.innerHTML = '⬇ PDF ডাউনলোড';
-    btn.disabled = false;
-  })
-  .catch(function(e) {
-    toast('PDF ব্যর্থ: ' + e.message);
-    btn.innerHTML = '⬇ PDF ডাউনলোড';
-    btn.disabled = false;
-  });
-}
-
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeBriefing();
-});
 
 
 /* ═══════════════════════════════════════════
@@ -2861,8 +2528,5 @@ function fetchAndDrawFloodExtent() {
   </div>
 </div>
 
-<script>
-  window.GROQ_KEY = window.GROQ_KEY || '%%GROQ_API_KEY%%';
-</script>
 </body>
 </html>
