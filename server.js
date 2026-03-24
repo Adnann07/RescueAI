@@ -1058,7 +1058,8 @@ async function callGroq(prompt) {
 
   const body = JSON.stringify({
     model: 'llama-3.3-70b-versatile',
-    max_tokens: 1200,
+    max_tokens: 2500,
+    response_format: { type: 'json_object' },
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -1083,8 +1084,20 @@ async function callGroq(prompt) {
           if (json.error) return reject(new Error(json.error.message || 'Groq API error'));
           const text = json.choices?.[0]?.message?.content || '';
           // Strip markdown fences if present
-          const clean = text.replace(/```json|```/g, '').trim();
-          resolve(JSON.parse(clean));
+          const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim();
+          // Attempt parse; if it fails try to recover truncated JSON
+          let parsed;
+          try {
+            parsed = JSON.parse(clean);
+          } catch(parseErr) {
+            // Try closing unclosed JSON object (truncation recovery)
+            const lastComplete = clean.lastIndexOf('",');
+            if (lastComplete > -1) {
+              try { parsed = JSON.parse(clean.substring(0, lastComplete + 1) + '}'); }
+              catch(_) { throw parseErr; }
+            } else { throw parseErr; }
+          }
+          resolve(parsed);
         } catch(e) {
           reject(new Error('Failed to parse Groq response: ' + e.message));
         }
