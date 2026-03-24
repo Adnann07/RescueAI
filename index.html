@@ -2020,21 +2020,23 @@ function generateBriefing() {
   document.getElementById('bp-loading').style.display = 'flex';
   document.getElementById('bp-content').style.display = 'none';
   document.getElementById('bp-footer').style.display  = 'none';
-  document.getElementById('bp-sub').textContent = 'বিশ্লেষণ হচ্ছে…';
+  document.getElementById('bp-sub').textContent = 'Analysing...';
 
-  var rptLines = reports.slice(0, 10).map(function(r) {
-    return (r.severity||'medium').toUpperCase()+' '+r.type+' at '+(r.district||r.location||'Bangladesh')+': '+r.title;
-  }).join(' | ') || 'No reports yet.';
-
-  // Send English-only prompt to avoid Bangla multi-byte truncation
-  var sysMsg = 'You are a disaster AI for Bangladesh. Reply ONLY with a JSON object. No markdown. No explanation. Values must be short (max 20 words each).';
-  var userMsg = 'Reports: ' + rptLines + '\n\nRespond with this exact JSON (fill in the values):\n{"level":"CRITICAL or HIGH or MODERATE or LOW","summary":"one sentence","situation":"one sentence","areas":"one sentence","actions":["short action 1","short action 2","short action 3"]}';
+  var rptLines = reports.slice(0, 8).map(function(r) {
+    return (r.severity||'medium').toUpperCase()+' '+(r.type||'other')+
+           ' in '+(r.district||r.location||'Bangladesh')+': '+(r.title||'').slice(0,60);
+  }).join(' | ') || 'No field reports yet.';
 
   var key = window.GROQ_KEY || '';
   if (!key) {
     document.getElementById('bp-loading').style.display = 'none';
     document.getElementById('bp-content').style.display = 'block';
-    document.getElementById('bp-content').innerHTML = '<div style="text-align:center;padding:32px;color:#c8192b"><div style="font-size:32px">⚠</div><div style="font-weight:700">GROQ_KEY not set</div></div>';
+    document.getElementById('bp-content').innerHTML =
+      '<div style="text-align:center;padding:32px;color:#c8192b">'+
+      '<div style="font-size:32px">!</div>'+
+      '<div style="font-weight:700;margin-top:8px">GROQ_KEY not configured</div>'+
+      '<div style="font-size:12px;color:#64748b;margin-top:6px">Set GROQ_API_KEY in Railway variables</div>'+
+      '</div>';
     return;
   }
 
@@ -2043,26 +2045,29 @@ function generateBriefing() {
     headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+key },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
-      max_tokens: 300,
+      max_tokens: 200,
       response_format: { type: 'json_object' },
-      messages: [{ role:'system', content:sysMsg }, { role:'user', content:userMsg }]
+      messages: [
+        { role:'system', content:'You are a disaster AI. Return ONLY a JSON object. No markdown. All values under 12 words.' },
+        { role:'user',   content:'Reports: '+rptLines+'\n\nReturn: {"level":"HIGH","summary":"max 12 words","situation":"max 12 words","areas":"max 12 words","actions":["max 8 words","max 8 words","max 8 words"]}' }
+      ]
     })
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
-    if (d.error) throw new Error(d.error.message);
-    var raw = d.choices[0].message.content.replace(/```json|```/g,'').trim();
+    if (d.error) throw new Error(d.error.message || 'Groq API error');
+    var raw = (d.choices[0].message.content||'').replace(/```json|```/g,'').trim();
     var b = JSON.parse(raw);
     var briefing = {
-      alert_level: (b.level || 'MODERATE').toUpperCase(),
+      alert_level: (b.level||'MODERATE').toUpperCase(),
       title: 'পরিস্থিতি বিবরণী',
-      summary: b.summary || '',
-      paragraph_1: { heading:'বর্তমান পরিস্থিতি', body: b.situation || b.summary || '' },
-      paragraph_2: { heading:'ঝুঁকিপূর্ণ এলাকা',  body: b.areas || '' },
+      summary: b.summary||'',
+      paragraph_1: { heading:'বর্তমান পরিস্থিতি', body: b.situation||b.summary||'' },
+      paragraph_2: { heading:'ঝুঁকিপূর্ণ এলাকা',  body: b.areas||'' },
       paragraph_3: { heading:'করণীয় পদক্ষেপ',     body: (b.actions||[]).join(' | ') },
-      key_actions: b.actions || [],
+      key_actions: b.actions||[],
       priority_districts: [],
-      generated_at: new Date().toLocaleString('en-BD', { timeZone:'Asia/Dhaka' }),
+      generated_at: new Date().toLocaleString('en-BD',{timeZone:'Asia/Dhaka'}),
       data_summary: { crowd_reports: reports.length, gdacs_events: 0 }
     };
     lastBriefing = briefing;
@@ -2072,10 +2077,10 @@ function generateBriefing() {
     document.getElementById('bp-loading').style.display = 'none';
     document.getElementById('bp-content').style.display = 'block';
     document.getElementById('bp-content').innerHTML =
-      '<div style="text-align:center;padding:32px;color:#c8192b">' +
-      '<div style="font-size:32px;margin-bottom:10px">⚠</div>' +
-      '<div style="font-weight:700;margin-bottom:6px">বিবরণী তৈরি ব্যর্থ হয়েছে</div>' +
-      '<div style="font-size:13px;color:#64748b">'+e.message+'</div></div>';
+      '<div style="text-align:center;padding:32px;color:#c8192b">'+
+      '<div style="font-size:32px;margin-bottom:10px">!</div>'+
+      '<div style="font-weight:700;margin-bottom:6px">Failed: '+e.message+'</div>'+
+      '</div>';
   });
 }
 
@@ -2857,7 +2862,6 @@ function fetchAndDrawFloodExtent() {
 </div>
 
 <script>
-  // Injected by server — do not hardcode
   window.GROQ_KEY = window.GROQ_KEY || '%%GROQ_API_KEY%%';
 </script>
 </body>

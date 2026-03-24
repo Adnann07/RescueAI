@@ -1064,8 +1064,12 @@ async function callGroq(prompt) {
 
   const body = JSON.stringify({
     model: 'llama-3.3-70b-versatile',
-    max_tokens: 1200,
-    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 3000,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: 'You are a disaster coordination assistant. Respond ONLY with a valid JSON object. No markdown. No extra text. Keep all body fields under 40 words.' },
+      { role: 'user', content: prompt },
+    ],
   });
 
   return new Promise((resolve, reject) => {
