@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CrisisMap BD — Live Disasters</title>
+<title>RescueAI — Live Disasters</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -377,6 +377,72 @@ body {
   .panel { width:100%; height:42vh; border-left:none; border-top:1px solid var(--border); }
   .stats { padding:0 12px; }
 }
+
+/* ── Crowd report markers ── */
+.cr-pin {
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; border:2.5px solid rgba(255,255,255,.85);
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+  position:relative;
+}
+.cr-wrap { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+.cr-lbl {
+  font-size:9px; font-weight:700; color:#fff;
+  background:rgba(0,0,0,.6); padding:1px 5px;
+  border-radius:4px; margin-top:2px; white-space:nowrap;
+  max-width:80px; overflow:hidden; text-overflow:ellipsis;
+}
+/* Crowd section in sidebar */
+.crowd-section { margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+.crowd-hd {
+  font-size:10px; font-weight:700; color:var(--muted);
+  letter-spacing:.6px; text-transform:uppercase; margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.crowd-count {
+  background:var(--bd-g); color:#fff;
+  border-radius:10px; padding:1px 6px; font-size:10px;
+}
+.cr-card {
+  padding:9px 10px; border-radius:8px;
+  border:1px solid var(--border); background:var(--surface);
+  margin-bottom:7px; cursor:pointer; transition:background .12s;
+}
+.cr-card:hover { background:var(--s2); }
+.cr-card .cr-title { font-size:12px; font-weight:700; color:var(--text); }
+.cr-card .cr-meta  { font-size:10px; color:var(--muted); margin-top:3px;
+  display:flex; gap:6px; flex-wrap:wrap; }
+.sev-c{color:#c8192b;} .sev-h{color:#c96a00;}
+.sev-m{color:#a16207;} .sev-l{color:#1a7c3e;}
+
+
+/* ── SATELLITE TOGGLE ── */
+.sat-toggle {
+  position:absolute; bottom:52px; left:12px; z-index:500;
+  display:flex; flex-direction:column; gap:6px;
+}
+.sat-btn {
+  background:rgba(255,255,255,.94); border:1px solid rgba(0,0,0,.12);
+  border-radius:8px; padding:6px 11px; font-size:11px;
+  font-weight:700; cursor:pointer; color:#475569;
+  backdrop-filter:blur(4px); box-shadow:0 2px 8px rgba(0,0,0,.12);
+  display:flex; align-items:center; gap:6px;
+  transition:all .15s; font-family:'DM Sans',-apple-system,sans-serif;
+  white-space:nowrap;
+}
+.sat-btn:hover { background:#fff; color:#0f172a; }
+.sat-btn.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+.sat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.sat-source {
+  position:absolute; bottom:18px; left:12px; z-index:500;
+  background:rgba(0,0,0,.6); color:rgba(255,255,255,.8);
+  border-radius:4px; padding:3px 8px; font-size:9px;
+  display:none; pointer-events:none;
+  font-family:'DM Sans',-apple-system,sans-serif;
+}
+.sat-source.show { display:block; }
+
 </style>
 </head>
 <body>
@@ -385,7 +451,7 @@ body {
 <header class="hdr">
   <div class="hdr-left">
     <div class="flag"><div class="flag-g"><div class="flag-r"></div></div></div>
-    <span class="brand">Crisis<em>Map</em> BD</span>
+    <span class="brand">Rescue<em>AI</em></span>
     <div class="brand-div"></div>
     <span class="brand-sub">Live Global Disasters</span>
   </div>
@@ -399,7 +465,8 @@ body {
       <span class="spin-icon">↻</span> Refresh
     </button>
     <a class="icon-btn icon-btn-ghost" href="/risk-map">🗺 Risk Map</a>
-    <a class="icon-btn icon-btn-ghost" href="/">← Reporter Map</a>
+    <a class="icon-btn" href="/volunteer" target="_blank" style="background:#d42638;color:#fff;border-color:#d42638">🪖 Volunteers</a>
+    <a class="icon-btn icon-btn-ghost" href="/reporter">← Reporter Map</a>
   </div>
 </header>
 
@@ -447,7 +514,20 @@ body {
     <div id="map"></div>
 
     <div class="map-tl">
-      <div class="map-badge-sm">🇧🇩 Bangladesh-first · GDACS live feed</div>
+      <div class="sat-toggle">
+  <button class="sat-btn" id="sat-true-btn" onclick="toggleSatLayer('true')">
+    <span class="sat-dot" style="background:#1d4ed8"></span> Satellite View
+  </button>
+  <button class="sat-btn" id="sat-ndvi-btn" onclick="toggleSatLayer('ndvi')">
+    <span class="sat-dot" style="background:#16a34a"></span> Vegetation (NDVI)
+  </button>
+  <button class="sat-btn" id="sat-firms-btn" onclick="toggleSatLayer('firms')">
+    <span class="sat-dot" style="background:#dc2626"></span> Thermal Hotspots
+  </button>
+</div>
+<div class="sat-source" id="sat-source"></div>
+
+<div class="map-badge-sm">🇧🇩 Bangladesh-first · GDACS live feed</div>
       <div class="type-pills" id="type-pills">
         <button class="tp on"  onclick="setTypeFilter(this,'all')">All</button>
         <button class="tp"     onclick="setTypeFilter(this,'FL')">🌊 Flood</button>
@@ -512,6 +592,7 @@ body {
 
 <!-- ═══ SCRIPTS ═══ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
 'use strict';
 
@@ -537,8 +618,24 @@ var TYPE_META = {
 };
 var LV_COLOR = { Red:'#c8192b', Orange:'#c96a00', Green:'#1a7c3e' };
 
+/* Crowd report type → icon/color */
+var CROWD_META = {
+  flood:     { e:'🌊', color:'#1d6fa8' },
+  cyclone:   { e:'🌀', color:'#6d28d9' },
+  fire:      { e:'🔥', color:'#c2410c' },
+  landslide: { e:'⛰',  color:'#78350f' },
+  storm:     { e:'⛈',  color:'#0369a1' },
+  drought:   { e:'☀',  color:'#b45309' },
+  erosion:   { e:'🏞',  color:'#a16207' },
+  heatwave:  { e:'🌡',  color:'#dc2626' },
+  other:     { e:'⚠',   color:'#6b7280' },
+};
+var SEV_COLOR = { critical:'#c8192b', high:'#c96a00', medium:'#a16207', low:'#1a7c3e' };
+
+
 /* ── STATE ─────────────────────────────────── */
 var map, allEvents = [], mkMap = {};
+var crowdReports = [], crMarkers = {}; // crowd-sourced reports
 var typeFilter = 'all', scope = 'bd';
 
 /* ── BOOT ───────────────────────────────────── */
@@ -546,15 +643,16 @@ window.addEventListener('load', function () {
   initMap();
   fetchGDACS();
   setInterval(fetchGDACS, 3 * 60 * 60 * 1000); // re-fetch every 3h
+  initSocket(); // pull crowd reports from reporter map
 });
 
 /* ── MAP INIT ───────────────────────────────── */
 function initMap() {
   map = L.map('map', {
-    center: [23.5, 90.3],
-    zoom: 5,
-    minZoom: 2,
-    maxZoom: 14,
+    center: [23.7, 90.35],
+    zoom: 7,
+    minZoom: 5,
+    maxZoom: 16,
   });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
@@ -711,7 +809,8 @@ function parseItem(item) {
 
   if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) return null;
 
-  var isBD   = lat >= BD.s && lat <= BD.n && lng >= BD.w && lng <= BD.e;
+  var isBD   = (lat >= BD.s && lat <= BD.n && lng >= BD.w && lng <= BD.e) ||
+               (country && country.toLowerCase().indexOf('bangladesh') !== -1);
   var isSA   = lat >= SA.s && lat <= SA.n && lng >= SA.w && lng <= SA.e;
   var meta   = TYPE_META[evType];
 
@@ -742,7 +841,7 @@ function renderAll() {
   renderList(visible);
   // Fly view
   if (scope === 'bd') {
-    map.flyTo([23.5, 90.3], 5, { duration: 1 });
+    map.flyTo([23.7, 90.35], 7, { duration: 1 });
   }
 }
 
@@ -752,16 +851,16 @@ function getVisible() {
     evs = evs.filter(function (e) { return e.type === typeFilter; });
   }
   if (scope === 'bd') {
-    // sort: BD first, then South Asia, then others
+    // Filter to BD + South Asia only — hide rest from list AND map
+    evs = evs.filter(function (e) { return e.isBD || e.isSA; });
     evs.sort(function (a, b) {
-      var ra = a.isBD ? 0 : a.isSA ? 1 : 2;
-      var rb = b.isBD ? 0 : b.isSA ? 1 : 2;
+      var ra = a.isBD ? 0 : 1;
+      var rb = b.isBD ? 0 : 1;
       if (ra !== rb) return ra - rb;
       var la = { Red:0, Orange:1, Green:2 };
       return (la[a.alertLv]||9) - (la[b.alertLv]||9);
     });
   } else {
-    // global sort by alert level then date
     evs.sort(function (a, b) {
       var la = { Red:0, Orange:1, Green:2 };
       if ((la[a.alertLv]||9) !== (la[b.alertLv]||9)) return (la[a.alertLv]||9)-(la[b.alertLv]||9);
@@ -943,8 +1042,17 @@ function setScope(btn, s) {
   document.querySelectorAll('.scope-b').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
   scope = s;
-  if (s === 'all') map.flyTo([20, 10], 2, { duration: 1.5 });
-  else             map.flyTo([23.5, 90.3], 5, { duration: 1 });
+  // Show/hide markers based on scope
+  allEvents.forEach(function (ev) {
+    if (!mkMap[ev.id]) return;
+    if (s === 'bd' && !ev.isBD && !ev.isSA) {
+      if (map.hasLayer(mkMap[ev.id])) map.removeLayer(mkMap[ev.id]);
+    } else {
+      if (!map.hasLayer(mkMap[ev.id])) mkMap[ev.id].addTo(map);
+    }
+  });
+  if (s === 'all') { map.options.minZoom = 2; map.flyTo([20, 10], 2, { duration: 1.5 }); }
+  else             map.flyTo([23.7, 90.35], 7, { duration: 1 });
   renderList(getVisible());
 }
 
@@ -998,6 +1106,142 @@ function esc(s) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ═══════════════════════════════════════════════
+   CROWD REPORTS — live from reporter map
+   via Socket.io
+═══════════════════════════════════════════════ */
+var socket;
+
+function initSocket() {
+  socket = io();
+
+  socket.on('init', function(d) {
+    (d.reports || []).forEach(function(r) { addCrowdReport(r); });
+    renderCrowdList();
+  });
+
+  socket.on('report:new', function(r) {
+    addCrowdReport(r);
+    renderCrowdList();
+  });
+}
+
+function addCrowdReport(r) {
+  if (crMarkers[r.id]) return; // already added
+  crowdReports.unshift(r);
+  if (crowdReports.length > 100) crowdReports.pop();
+
+  var meta  = CROWD_META[r.type] || CROWD_META.other;
+  var scol  = SEV_COLOR[r.severity] || '#6b7280';
+  var html  =
+    '<div class="cr-wrap">' +
+      '<div class="cr-pin" style="background:' + meta.color + ';border-color:' + scol + '">' +
+        meta.e +
+      '</div>' +
+      '<div class="cr-lbl">' + esc(r.title || r.type) + '</div>' +
+    '</div>';
+
+  var icon = L.divIcon({ className:'', html:html, iconSize:[28,44],
+    iconAnchor:[14,44], popupAnchor:[0,-46] });
+
+  var popup =
+    '<div class="pop">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
+        '<span style="font-size:16px">' + meta.e + '</span>' +
+        '<strong style="font-size:14px">' + esc(r.title) + '</strong>' +
+      '</div>' +
+      '<p style="font-size:12px;color:var(--muted);margin-bottom:6px">' + esc(r.desc || '') + '</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;font-size:11px">' +
+        '<span style="background:' + scol + '22;color:' + scol + ';border-radius:4px;padding:1px 6px;font-weight:700">' + (r.severity||'') + '</span>' +
+        (r.district ? '<span style="background:#e8f4fd;color:#1d6fa8;border-radius:4px;padding:1px 6px">📍 ' + esc(r.district) + '</span>' : '') +
+        '<span style="background:var(--s2);color:var(--muted);border-radius:4px;padding:1px 6px">👤 ' + esc(r.reporter||'Anonymous') + '</span>' +
+        '<span style="background:#e8f5e9;color:#1a7c3e;border-radius:4px;padding:1px 6px;font-weight:700">Crowd Report</span>' +
+      '</div>' +
+    '</div>';
+
+  var m = L.marker([r.lat, r.lng], { icon:icon, zIndexOffset:800 }).addTo(map);
+  m.bindPopup(popup);
+  m.on('click', function(){ map.flyTo([r.lat, r.lng], 9, { duration:0.8 }); });
+  crMarkers[r.id] = m;
+}
+
+function renderCrowdList() {
+  var container = document.getElementById('crowd-list');
+  if (!container) return;
+  container.innerHTML = '';
+  document.getElementById('crowd-count').textContent = crowdReports.length;
+
+  if (crowdReports.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">No crowd reports yet</div>';
+    return;
+  }
+
+  crowdReports.slice(0, 20).forEach(function(r) {
+    var meta = CROWD_META[r.type] || CROWD_META.other;
+    var scol = SEV_COLOR[r.severity] || '#6b7280';
+    var card = document.createElement('div');
+    card.className = 'cr-card';
+    card.innerHTML =
+      '<div class="cr-title">' + meta.e + ' ' + esc(r.title) + '</div>' +
+      '<div class="cr-meta">' +
+        '<span style="color:' + scol + ';font-weight:700">' + (r.severity||'') + '</span>' +
+        (r.district ? '<span>📍 ' + esc(r.district) + '</span>' : '') +
+        '<span>👤 ' + esc(r.reporter||'Anon') + '</span>' +
+      '</div>';
+    card.onclick = function() {
+      map.flyTo([r.lat, r.lng], 9, { duration:0.9 });
+      if (crMarkers[r.id]) crMarkers[r.id].openPopup();
+    };
+    container.appendChild(card);
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════
+   REMOTE SENSING — NASA GIBS satellite layers
+   No API key required. Free for research use.
+═══════════════════════════════════════════════════ */
+var satLayers = {};
+var activeSatLayer = null;
+var SAT_SOURCES = {
+  true:  { label:'NASA MODIS True Colour',            layer:'MODIS_Terra_CorrectedReflectance_TrueColor',     opacity:0.65 },
+  ndvi:  { label:'NASA MODIS Vegetation Index (NDVI)', layer:'MODIS_Terra_NDVI_8Day',                         opacity:0.60 },
+  firms: { label:'NASA FIRMS Thermal Anomalies',       layer:'FIRMS_VIIRS_NOAA20_Thermal_Anomalies_375m_NRT', opacity:0.80 },
+};
+var GIBS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+
+function toggleSatLayer(type) {
+  var btn = document.getElementById('sat-' + type + '-btn');
+  if (activeSatLayer === type) {
+    if (satLayers[type]) map.removeLayer(satLayers[type]);
+    activeSatLayer = null;
+    btn.classList.remove('on');
+    document.getElementById('sat-source').classList.remove('show');
+    return;
+  }
+  if (activeSatLayer && satLayers[activeSatLayer]) {
+    map.removeLayer(satLayers[activeSatLayer]);
+    var prev = document.getElementById('sat-' + activeSatLayer + '-btn');
+    if (prev) prev.classList.remove('on');
+  }
+  activeSatLayer = type;
+  btn.classList.add('on');
+  var src = SAT_SOURCES[type];
+  if (!satLayers[type]) {
+    satLayers[type] = L.tileLayer.wms(GIBS_URL, {
+      layers: src.layer,
+      format:'image/png', transparent:true, opacity:src.opacity,
+      attribution:'NASA GIBS', crs:L.CRS.EPSG4326, version:'1.1.1',
+    });
+  }
+  satLayers[type].addTo(map);
+  setTimeout(function(){ if(satLayers[type]) satLayers[type].setZIndex(200); }, 100);
+  var badge = document.getElementById('sat-source');
+  badge.textContent = src.label + ' · ' + new Date().toLocaleDateString();
+  badge.classList.add('show');
+}
+
 </script>
 </body>
 </html>

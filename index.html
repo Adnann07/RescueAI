@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CrisisMap BD — Reporter</title>
+<title>RescueAI — Reporter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -93,7 +93,8 @@ header {
 .logo-div { width:1px; height:16px; background:var(--border); margin:0 10px; }
 .logo-sub { font-size:12px; color:var(--muted); font-weight:500; }
 
-.hdr-right { display:flex; align-items:center; gap:7px; }
+.hdr-right { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+.hdr-right::-webkit-scrollbar{display:none;}
 .live-chip {
   display:flex; align-items:center; gap:5px;
   background:#dcfce7; border:1px solid #bbf7d0;
@@ -496,6 +497,500 @@ header {
 }
 .mdc-link:hover { text-decoration: underline; }
 
+
+/* ── RESCUER MARKERS ── */
+.rm-wrap { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+.rm-pin {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; border:3px solid #fff;
+  box-shadow: 0 0 0 2px #ef4444, 0 3px 12px rgba(0,0,0,.4);
+  position:relative;
+}
+.rm-pin.available   { background:#16a34a; }
+.rm-pin.on_mission  { background:#d97706; }
+.rm-pin.unreachable { background:#6b7280; }
+.rm-pin::after {
+  content:''; position:absolute; inset:-6px; border-radius:50%;
+  border:2px solid currentColor; opacity:.4;
+  animation:rm-pulse 2s ease-out infinite;
+}
+.rm-pin.available::after   { color:#16a34a; }
+.rm-pin.on_mission::after  { color:#d97706; }
+.rm-pin.unreachable::after { display:none; }
+@keyframes rm-pulse { 0%{transform:scale(1);opacity:.4} 100%{transform:scale(1.8);opacity:0} }
+.rm-lbl {
+  font-size:10px; font-weight:700; color:#fff;
+  background:rgba(0,0,0,.65); padding:1px 6px;
+  border-radius:4px; margin-top:2px; white-space:nowrap;
+  max-width:90px; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* Rescuer layer toggle button */
+.rescuer-toggle {
+  padding:5px 11px; border-radius:var(--r); border:1.5px solid #ef4444;
+  background:transparent; color:#ef4444;
+  font-size:11px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; gap:5px;
+  transition:all .15s; white-space:nowrap;
+}
+.rescuer-toggle:hover { background:#fef2f2; }
+.rescuer-toggle.off   { border-color:var(--border); color:var(--muted); }
+.rescuer-count {
+  background:#ef4444; color:#fff; border-radius:10px;
+  padding:0 5px; font-size:10px; min-width:16px; text-align:center;
+}
+
+
+/* ── Volunteer CTA banner ── */
+.vol-banner {
+  background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+  border: 1px solid rgba(239,68,68,.4);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; transition: opacity .15s;
+  text-decoration: none; color: #fff;
+  margin: 8px 12px 0;
+}
+.vol-banner:hover { opacity: .9; }
+.vol-banner .vb-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(255,255,255,.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.vol-banner .vb-text { flex: 1; }
+.vol-banner .vb-title { font-size: 14px; font-weight: 700; }
+.vol-banner .vb-sub { font-size: 11px; opacity: .75; margin-top: 2px; }
+.vol-banner .vb-arr { font-size: 18px; opacity: .7; }
+.vol-count {
+  display: inline-block; background: rgba(255,255,255,.2);
+  border-radius: 10px; padding: 1px 7px; font-size: 11px;
+  margin-left: 6px; font-weight: 700;
+}
+
+
+/* ── AI BRIEFING PANEL ── */
+.briefing-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  z-index:2000; display:none; align-items:flex-end;
+  justify-content:center; backdrop-filter:blur(2px);
+}
+.briefing-overlay.show { display:flex; }
+
+.briefing-panel {
+  background:#fff; border-radius:18px 18px 0 0;
+  width:100%; max-width:680px; max-height:88vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 -8px 40px rgba(0,0,0,.2);
+  animation:slide-up .28s cubic-bezier(.32,.72,0,1);
+}
+@keyframes slide-up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+.bp-header {
+  padding:20px 22px 14px; border-bottom:1px solid #e2e8f0;
+  display:flex; align-items:flex-start; gap:12px; flex-shrink:0;
+}
+.bp-icon {
+  width:42px; height:42px; border-radius:11px; flex-shrink:0;
+  background:#eff6ff; display:flex; align-items:center;
+  justify-content:center; font-size:20px;
+}
+.bp-titles { flex:1; }
+.bp-titles h2 { font-size:16px; font-weight:700; color:#0f172a; }
+.bp-titles .bp-sub { font-size:12px; color:#64748b; margin-top:2px; }
+.bp-close {
+  width:32px; height:32px; border-radius:8px; border:none;
+  background:#f1f5f9; color:#64748b; cursor:pointer;
+  font-size:18px; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.bp-close:hover { background:#e2e8f0; }
+
+.bp-body { overflow-y:auto; padding:18px 22px; flex:1; }
+
+/* Alert badge */
+.bp-alert {
+  display:inline-flex; align-items:center; gap:6px;
+  border-radius:8px; padding:5px 12px; font-size:12px;
+  font-weight:700; margin-bottom:14px;
+}
+.bp-alert.CRITICAL { background:#fef2f2; color:#c8192b; border:1px solid #fecaca; }
+.bp-alert.HIGH     { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+.bp-alert.MODERATE { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+.bp-alert.LOW      { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+
+/* Summary box */
+.bp-summary {
+  background:#f8fafc; border-left:3px solid #1d4ed8;
+  border-radius:0 8px 8px 0; padding:12px 14px;
+  font-size:13px; color:#334155; line-height:1.6;
+  margin-bottom:18px;
+}
+
+/* Paragraphs */
+.bp-section { margin-bottom:18px; }
+.bp-section h3 {
+  font-size:13px; font-weight:700; color:#1e3a5f;
+  text-transform:uppercase; letter-spacing:.5px;
+  margin-bottom:8px; display:flex; align-items:center; gap:8px;
+}
+.bp-section h3::after {
+  content:''; flex:1; height:1px; background:#e2e8f0;
+}
+.bp-section p {
+  font-size:13px; color:#334155; line-height:1.7;
+}
+
+/* Key actions */
+.bp-actions { display:flex; flex-direction:column; gap:7px; margin-bottom:18px; }
+.bp-action {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; background:#f8fafc; border-radius:8px;
+  border:1px solid #e2e8f0;
+}
+.bp-action .act-num {
+  width:22px; height:22px; border-radius:6px; flex-shrink:0;
+  background:#1d4ed8; color:#fff; font-size:11px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+}
+.bp-action span { font-size:13px; color:#0f172a; line-height:1.5; }
+
+/* Priority districts */
+.bp-districts { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+.bp-district {
+  padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700;
+  background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;
+}
+
+/* Data footnote */
+.bp-footnote {
+  font-size:11px; color:#94a3b8; text-align:center;
+  border-top:1px solid #e2e8f0; padding-top:12px; margin-top:4px;
+}
+
+/* Footer actions */
+.bp-footer {
+  padding:14px 22px; border-top:1px solid #e2e8f0;
+  display:flex; gap:10px; flex-shrink:0;
+}
+.bp-btn {
+  flex:1; height:44px; border-radius:10px; border:none;
+  font-size:14px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:opacity .15s;
+}
+.bp-btn:active { opacity:.8; }
+.bp-btn.primary { background:#1d4ed8; color:#fff; }
+.bp-btn.primary:hover { background:#1e40af; }
+.bp-btn.secondary { background:#f1f5f9; color:#334155; }
+.bp-btn.secondary:hover { background:#e2e8f0; }
+
+/* Loading state */
+.bp-loading {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:48px 24px; gap:14px;
+}
+.bp-spinner {
+  width:36px; height:36px; border:3px solid #e2e8f0;
+  border-top-color:#1d4ed8; border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+.bp-loading p { font-size:14px; color:#64748b; }
+
+/* Generate briefing button */
+.gen-briefing-btn {
+  padding:6px 13px; border-radius:var(--r);
+  border:1.5px solid #1d4ed8; background:transparent;
+  color:#1d4ed8; font-size:11px; font-weight:700;
+  cursor:pointer; white-space:nowrap; transition:all .15s;
+  display:flex; align-items:center; gap:5px;
+}
+.gen-briefing-btn:hover { background:#eff6ff; }
+
+
+/* ── VOICE REPORT ── */
+.voice-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.6);
+  z-index:2100; display:none; align-items:flex-end;
+  justify-content:center; backdrop-filter:blur(3px);
+}
+.voice-overlay.show { display:flex; }
+
+.voice-panel {
+  background:#fff; border-radius:20px 20px 0 0;
+  width:100%; max-width:520px;
+  animation:slide-up .25s cubic-bezier(.32,.72,0,1);
+  overflow:hidden;
+}
+
+.vp-header {
+  background:#0f172a; padding:18px 20px 16px;
+  display:flex; align-items:center; gap:12px;
+}
+.vp-header h2 { font-size:16px; font-weight:700; color:#fff; flex:1; }
+.vp-header .vp-close {
+  width:30px; height:30px; border-radius:8px;
+  background:rgba(255,255,255,.1); border:none; color:#fff;
+  cursor:pointer; font-size:16px; display:flex;
+  align-items:center; justify-content:center;
+}
+
+.vp-body { padding:20px; }
+
+/* Mic button */
+.mic-area {
+  display:flex; flex-direction:column; align-items:center;
+  gap:12px; margin-bottom:20px;
+}
+.mic-btn {
+  width:76px; height:76px; border-radius:50%; border:none;
+  background:#0f172a; color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; transition:all .2s; position:relative;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);
+}
+.mic-btn.listening {
+  background:#dc2626;
+  animation:mic-pulse 1.5s ease-in-out infinite;
+}
+.mic-btn.processing { background:#1d4ed8; cursor:not-allowed; }
+@keyframes mic-pulse {
+  0%,100%{ box-shadow:0 0 0 0 rgba(220,38,38,.4); }
+  50%{ box-shadow:0 0 0 18px rgba(220,38,38,0); }
+}
+.mic-status { font-size:13px; color:#64748b; font-weight:600; }
+.mic-status.listening { color:#dc2626; }
+.mic-status.processing { color:#1d4ed8; }
+
+/* Language toggle */
+.lang-toggle {
+  display:flex; gap:6px; margin-bottom:16px;
+  background:#f1f5f9; border-radius:10px; padding:4px;
+}
+.lang-btn {
+  flex:1; padding:7px; border:none; border-radius:7px;
+  background:transparent; font-size:13px; font-weight:600;
+  color:#64748b; cursor:pointer; transition:all .15s;
+}
+.lang-btn.on { background:#fff; color:#0f172a; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+
+/* Transcript box */
+.transcript-box {
+  background:#f8fafc; border:1.5px solid #e2e8f0;
+  border-radius:10px; padding:12px; min-height:60px;
+  font-size:14px; color:#334155; line-height:1.6;
+  margin-bottom:16px; font-style:italic;
+}
+.transcript-box.empty { color:#94a3b8; font-style:italic; }
+.transcript-box.has-text { font-style:normal; border-color:#1d4ed8; }
+
+/* Extracted fields preview */
+.extracted-preview {
+  background:#eff6ff; border:1px solid #bfdbfe;
+  border-radius:10px; padding:12px; margin-bottom:16px;
+  display:none;
+}
+.extracted-preview.show { display:block; }
+.ep-title { font-size:12px; font-weight:700; color:#1d4ed8;
+  letter-spacing:.5px; margin-bottom:8px; }
+.ep-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.ep-field { font-size:12px; }
+.ep-field .ef-label { color:#64748b; font-weight:600; }
+.ep-field .ef-val   { color:#0f172a; font-weight:700; margin-top:1px; }
+
+/* Action buttons */
+.vp-actions { display:flex; gap:8px; }
+.vp-btn {
+  flex:1; height:46px; border-radius:10px; border:none;
+  font-size:14px; font-weight:700; cursor:pointer;
+  transition:opacity .15s;
+}
+.vp-btn:active { opacity:.8; }
+.vp-btn.primary { background:#0f172a; color:#fff; }
+.vp-btn.secondary { background:#f1f5f9; color:#334155; }
+
+/* Voice button in report tab */
+.voice-report-btn {
+  width:100%; padding:12px; border-radius:10px;
+  border:1.5px dashed #cbd5e1; background:#f8fafc;
+  color:#475569; font-size:14px; font-weight:600;
+  cursor:pointer; display:flex; align-items:center;
+  justify-content:center; gap:8px; margin-bottom:14px;
+  transition:all .15s;
+}
+.voice-report-btn:hover { border-color:#0f172a; background:#f1f5f9; color:#0f172a; }
+
+
+/* ── EARLY WARNING BANNER ── */
+.ew-banner {
+  position:relative; z-index:10;
+  background:#7f1d1d; color:#fff;
+  padding:0; max-height:0; overflow:hidden;
+  transition:max-height .4s ease, padding .4s ease;
+  font-family:'DM Sans',-apple-system,sans-serif;
+}
+.ew-banner.active {
+  max-height:60px; padding:8px 16px;
+}
+.ew-banner-inner {
+  display:flex; align-items:center; gap:12px;
+}
+.ew-pulse {
+  width:12px; height:12px; border-radius:50%;
+  background:#fca5a5; flex-shrink:0;
+  animation:ew-blink .9s ease-in-out infinite;
+}
+@keyframes ew-blink {
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%    { opacity:.5; transform:scale(1.4); }
+}
+.ew-text { flex:1; }
+.ew-title { font-size:13px; font-weight:700; }
+.ew-sub   { font-size:11px; opacity:.8; margin-top:2px; }
+.ew-count-badge {
+  background:#fca5a5; color:#7f1d1d;
+  border-radius:20px; padding:3px 10px;
+  font-size:12px; font-weight:800; flex-shrink:0;
+}
+.ew-details-btn {
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3);
+  color:#fff; border-radius:8px; padding:5px 12px;
+  font-size:11px; font-weight:700; cursor:pointer; flex-shrink:0;
+  font-family:inherit;
+}
+.ew-details-btn:hover { background:rgba(255,255,255,.25); }
+
+/* ── EARLY WARNING DRAWER ── */
+.ew-drawer {
+  position:fixed; bottom:0; left:0; right:0; z-index:1400;
+  background:#fff; border-radius:16px 16px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  transform:translateY(100%); transition:transform .3s cubic-bezier(.32,.72,0,1);
+  max-height:70vh; overflow-y:auto;
+  font-family:'DM Sans',-apple-system,sans-serif;
+}
+.ew-drawer.open { transform:translateY(0); }
+.ew-drawer-header {
+  padding:16px 18px 12px; border-bottom:1px solid #e2e8f0;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; background:#fff; z-index:1;
+}
+.ew-drawer-header h3 { font-size:15px; font-weight:700; color:#7f1d1d; }
+.ew-drawer-close {
+  width:28px; height:28px; border-radius:8px; border:none;
+  background:#f1f5f9; color:#64748b; cursor:pointer; font-size:14px;
+}
+.ew-card {
+  margin:10px 14px; border-radius:10px;
+  border:1px solid #e2e8f0; overflow:hidden;
+}
+.ew-card-header {
+  padding:10px 14px; background:#fef2f2;
+  display:flex; align-items:center; gap:10px;
+}
+.ew-card-score {
+  font-size:22px; font-weight:800; color:#dc2626; line-height:1;
+}
+.ew-card-info { flex:1; }
+.ew-card-name { font-size:14px; font-weight:700; color:#0f172a; }
+.ew-card-hazard { font-size:11px; color:#dc2626; font-weight:600; margin-top:1px; text-transform:uppercase; letter-spacing:.4px; }
+.ew-card-body { padding:10px 14px; }
+.ew-card-action {
+  font-size:12px; color:#334155; line-height:1.5;
+  background:#f8fafc; border-radius:6px; padding:8px 10px; margin-bottom:8px;
+}
+.ew-card-meta { display:flex; gap:10px; flex-wrap:wrap; }
+.ew-card-meta span {
+  font-size:10px; color:#64748b; background:#f1f5f9;
+  border-radius:4px; padding:2px 7px;
+}
+.ew-boost-tag {
+  font-size:10px; font-weight:700; color:#dc2626;
+  background:#fef2f2; border-radius:4px; padding:2px 7px;
+}
+
+
+/* ── EXPOSED POPULATION STAT ── */
+.pop-stat-card {
+  position:absolute; bottom:32px; left:12px; z-index:500;
+  background:rgba(15,23,42,.88); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.1); border-radius:12px;
+  padding:10px 14px; min-width:180px;
+  font-family:'DM Sans',-apple-system,sans-serif;
+  cursor:pointer; transition:opacity .2s;
+}
+.pop-stat-card:hover { opacity:.92; }
+.pop-stat-label {
+  font-size:9px; font-weight:700; color:rgba(255,255,255,.5);
+  letter-spacing:.8px; text-transform:uppercase; margin-bottom:4px;
+}
+.pop-stat-number {
+  font-size:22px; font-weight:800; color:#fff; line-height:1;
+  letter-spacing:-.5px;
+}
+.pop-stat-number span {
+  font-size:13px; font-weight:600; color:#f87171; margin-left:3px;
+}
+.pop-stat-sub {
+  font-size:10px; color:rgba(255,255,255,.45); margin-top:3px;
+  line-height:1.4;
+}
+.pop-stat-bar {
+  margin-top:8px; height:3px; background:rgba(255,255,255,.1);
+  border-radius:2px; overflow:hidden;
+}
+.pop-stat-bar-fill {
+  height:100%; border-radius:2px; background:#f87171;
+  transition:width .8s ease;
+}
+
+
+/* ── SATELLITE TOGGLE ── */
+.sat-toggle {
+  position:absolute; bottom:140px; left:12px; z-index:500;
+  display:flex; flex-direction:column; gap:5px;
+}
+.sat-btn {
+  background:rgba(255,255,255,.94); border:1px solid rgba(0,0,0,.12);
+  border-radius:8px; padding:6px 11px; font-size:11px;
+  font-weight:700; cursor:pointer; color:#475569;
+  backdrop-filter:blur(4px); box-shadow:0 2px 8px rgba(0,0,0,.12);
+  display:flex; align-items:center; gap:6px;
+  transition:all .15s; font-family:'DM Sans',-apple-system,sans-serif;
+  white-space:nowrap;
+}
+.sat-btn:hover { background:#fff; color:#0f172a; }
+.sat-btn.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+.sat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.sat-source {
+  position:absolute; bottom:8px; left:12px; z-index:500;
+  background:rgba(0,0,0,.6); color:rgba(255,255,255,.8);
+  border-radius:4px; padding:3px 8px; font-size:9px;
+  display:none; pointer-events:none;
+  font-family:'DM Sans',-apple-system,sans-serif;
+}
+.sat-source.show { display:block; }
+
+
+/* ── FLOOD EXTENT OVERLAY ── */
+@keyframes flood-pulse {
+  0%   { transform:scale(0.9); opacity:.5; }
+  100% { transform:scale(2.6); opacity:0;  }
+}
+  100% { transform:scale(2.2); opacity:0;  }
+}
+.flood-advisory-label {
+  background:rgba(29,78,216,.92); color:#fff;
+  font-family:'DM Sans',-apple-system,sans-serif;
+  font-size:10px; font-weight:700; border-radius:5px;
+  padding:3px 8px; white-space:nowrap;
+  border:1.5px solid rgba(255,255,255,.6);
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.flood-advisory-label.red { background:rgba(185,28,28,.92); }
+
 </style>
 </head>
 <body>
@@ -505,7 +1000,7 @@ header {
   <div class="join-card">
     <div class="join-brand">
       <div class="jflag"><div class="jflag-g"><div class="jflag-r"></div></div></div>
-      <h1>Crisis<em>Map</em> BD</h1>
+      <h1>Rescue<em>AI</em></h1>
     </div>
     <p class="join-desc">Live crowd-sourced disaster reporting for Bangladesh. Enter your name to join — your location appears on the map in real time for all reporters.</p>
     <div>
@@ -531,20 +1026,35 @@ header {
 </div>
 
 <!-- HEADER -->
+<!-- EARLY WARNING BANNER -->
+<div class="ew-banner" id="ew-banner">
+  <div class="ew-banner-inner">
+    <div class="ew-pulse"></div>
+    <div class="ew-text">
+      <div class="ew-title" id="ew-title">Early Warning Issued</div>
+      <div class="ew-sub"  id="ew-sub">Districts at elevated risk</div>
+    </div>
+    <div class="ew-count-badge" id="ew-count">0</div>
+    <button class="ew-details-btn" onclick="toggleEwDrawer()">View Details</button>
+  </div>
+</div>
 <header>
   <div class="logo">
     <div class="logo-flag"><div class="lf-g"><div class="lf-r"></div></div></div>
-    <span class="logo-name">Crisis<em>Map</em> BD</span>
+    <span class="logo-name">Rescue<em>AI</em></span>
     <div class="logo-div"></div>
     <span class="logo-sub">Reporter Map</span>
   </div>
   <div class="hdr-right">
     <div class="live-chip" id="live-chip"><div class="blink"></div><span id="conn-lbl">Connecting…</span></div>
-    <button class="hbtn hbtn-ghost" onclick="switchTab('feed')">📡 Feed</button>
-    <button class="hbtn hbtn-ghost" onclick="switchTab('users')">👥 Users</button>
-    <button class="hbtn hbtn-red"   onclick="switchTab('report')">＋ Report</button>
-    <a class="hbtn hbtn-green" href="/live-disasters" target="_blank">🌍 Live Disasters ↗</a>
-    <a class="hbtn" href="/risk-map" target="_blank">🗺 Risk Map</a>
+    <button class="hbtn hbtn-ghost" onclick="switchTab('feed')">Feed</button>
+    <button class="hbtn hbtn-ghost" onclick="switchTab('users')">Users</button>
+    <button class="hbtn hbtn-red"   onclick="switchTab('report')">+ Report</button>
+    <button class="rescuer-toggle" id="rescuer-toggle" onclick="toggleRescuerLayer()">Rescuers <span class="rescuer-count" id="rescuer-count">0</span></button>
+    <a class="hbtn hbtn-green" href="/live-disasters" target="_blank">Live Map</a>
+    <a class="hbtn" href="/risk-map" target="_blank">Risk Map</a>
+    <button class="gen-briefing-btn" onclick="openBriefing()">🧠 AI বিবরণী</button>
+    <a class="hbtn hbtn-red" href="/volunteer" target="_blank">Volunteers</a>
   </div>
 </header>
 
@@ -554,6 +1064,23 @@ header {
   <!-- MAP -->
   <div id="map">
     <div class="map-badge">🇧🇩 Bangladesh · Reporter Map</div>
+    <div class="pop-stat-card" id="pop-stat-card" onclick="openBriefing()" title="Click for AI briefing">
+      <div class="pop-stat-label">People at High Risk</div>
+      <div class="pop-stat-number" id="pop-stat-num">—<span id="pop-stat-unit"></span></div>
+      <div class="pop-stat-sub" id="pop-stat-sub">Loading risk data…</div>
+      <div class="pop-stat-bar"><div class="pop-stat-bar-fill" id="pop-stat-bar" style="width:0%"></div></div>
+    </div>
+<div class="sat-toggle">
+  <button class="sat-btn" id="sat-true-btn" onclick="toggleSatLayer('true')">
+    <span class="sat-dot" style="background:#1d4ed8"></span> Satellite View
+  </button>
+  <button class="sat-btn" id="sat-ndvi-btn" onclick="toggleSatLayer('ndvi')">
+    <span class="sat-dot" style="background:#16a34a"></span> Vegetation (NDVI)
+  </button>
+
+</div>
+<div class="sat-source" id="sat-source"></div>
+
     <div class="pick-banner" id="pick-banner">📍 Click the map to pin your incident</div>
     <div class="users-pill"><div class="blink" style="color:#16a34a"></div><span id="online-count">0</span>&nbsp;online</div>
     <div class="map-legend">
@@ -597,6 +1124,9 @@ header {
     <!-- REPORT -->
     <div class="pcontent" id="pc-report">
       <div class="rform">
+        <button class="voice-report-btn" onclick="openVoice()">
+          🎤 ভয়েস রিপোর্ট — বাংলায় বলুন
+        </button>
         <div class="rgroup">
           <div class="rlabel">Disaster Type</div>
           <div class="tgrid">
@@ -649,7 +1179,89 @@ header {
   </div>
 </div>
 
+
+
+<!-- EARLY WARNING DRAWER -->
+<div class="ew-drawer" id="ew-drawer">
+  <div class="ew-drawer-header">
+    <h3>Active Early Warnings</h3>
+    <button class="ew-drawer-close" onclick="toggleEwDrawer()">✕</button>
+  </div>
+  <div id="ew-cards"></div>
+</div>
+
 <div class="toast" id="toast"></div>
+
+<!-- VOICE REPORT PANEL -->
+<div class="voice-overlay" id="voice-overlay" onclick="if(event.target===this)closeVoice()">
+  <div class="voice-panel">
+    <div class="vp-header">
+      <h2>🎤 ভয়েস রিপোর্ট</h2>
+      <button class="vp-close" onclick="closeVoice()">✕</button>
+    </div>
+    <div class="vp-body">
+
+<!-- Mic -->
+      <div class="mic-area">
+        <button class="mic-btn" id="mic-btn" onclick="toggleMic()">🎤</button>
+        <span class="mic-status" id="mic-status">বলতে ট্যাপ করুন</span>
+      </div>
+
+      <!-- Transcript -->
+      <div class="transcript-box empty" id="voice-transcript">
+        দুর্যোগের বিবরণ বলুন — স্থান, ধরন এবং তীব্রতা…
+      </div>
+
+      <!-- Extracted preview -->
+      <div class="extracted-preview" id="extracted-preview">
+        <div class="ep-title">AI EXTRACTED</div>
+        <div class="ep-grid">
+          <div class="ep-field"><div class="ef-label">Type</div><div class="ef-val" id="ep-type">—</div></div>
+          <div class="ep-field"><div class="ef-label">Severity</div><div class="ef-val" id="ep-severity">—</div></div>
+          <div class="ep-field"><div class="ef-label">District</div><div class="ef-val" id="ep-district">—</div></div>
+          <div class="ep-field"><div class="ef-label">Location</div><div class="ef-val" id="ep-location">—</div></div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="vp-actions">
+        <button class="vp-btn secondary" onclick="clearVoice()">মুছুন</button>
+        <button class="vp-btn primary" id="vp-fill-btn" onclick="fillReportForm()" disabled>
+          জমা দিন →
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- AI BRIEFING PANEL -->
+<div class="briefing-overlay" id="briefing-overlay" onclick="if(event.target===this)closeBriefing()">
+  <div class="briefing-panel" id="briefing-panel">
+    <div class="bp-header">
+      <div class="bp-icon">🧠</div>
+      <div class="bp-titles">
+        <h2>AI পরিস্থিতি বিবরণী</h2>
+        <div class="bp-sub" id="bp-sub">Groq · llama-3.3-70b দ্বারা চালিত</div>
+      </div>
+      <button class="bp-close" onclick="closeBriefing()">✕</button>
+    </div>
+    <div class="bp-body" id="bp-body">
+      <div class="bp-loading" id="bp-loading">
+        <div class="bp-spinner"></div>
+        <p>Analysing situation data…</p>
+      </div>
+      <div id="bp-content" style="display:none"></div>
+    </div>
+    <div class="bp-footer" id="bp-footer" style="display:none">
+      <button class="bp-btn secondary" onclick="generateBriefing()">↺ Regenerate</button>
+      <button class="bp-btn primary" onclick="downloadBriefingPDF()">⬇ Download PDF</button>
+    </div>
+  </div>
+</div>
+
+
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -680,14 +1292,30 @@ document.querySelectorAll('.cswatch').forEach(function(el){
   el.onclick=function(){
     document.querySelectorAll('.cswatch').forEach(function(e){e.classList.remove('on');});
     el.classList.add('on'); myColor=el.dataset.color;
+    localStorage.setItem('rescue_color', myColor);
   };
 });
 document.getElementById('join-name').onkeydown=function(e){if(e.key==='Enter')joinMap();};
+
+// Restore saved name + colour on page load
+(function(){
+  var sName  = localStorage.getItem('rescue_name');
+  var sColor = localStorage.getItem('rescue_color');
+  if (sName)  document.getElementById('join-name').value = sName;
+  if (sColor) {
+    myColor = sColor;
+    document.querySelectorAll('.cswatch').forEach(function(e){
+      e.classList.toggle('on', e.dataset.color === sColor);
+    });
+  }
+})();
 
 function joinMap(){
   var n=document.getElementById('join-name').value.trim();
   if(!n){document.getElementById('join-name').focus();return;}
   myName=n;
+  localStorage.setItem('rescue_name',  myName);
+  localStorage.setItem('rescue_color', myColor);
   document.getElementById('join-overlay').style.display='none';
   initMap(); initSocket(); startGPS();
 }
@@ -708,6 +1336,8 @@ function initMap(){
 function initSocket(){
   socket=io();
   socket.on('connect',function(){
+    // Fetch flood extent data when connected
+    setTimeout(fetchAndDrawFloodExtent, 500);
     myId=socket.id;
     document.getElementById('conn-lbl').textContent='Live';
     document.getElementById('live-chip').classList.remove('offline');
@@ -717,8 +1347,10 @@ function initSocket(){
     document.getElementById('conn-lbl').textContent='Offline';
     document.getElementById('live-chip').classList.add('offline');
   });
+  socket.on('earlywarning:update', function(d) { handleEarlyWarnings(d); });
   socket.on('init',function(d){
     myId=d.yourId;
+    updatePopStat({});  // show baseline exposure on connect
     d.reports.forEach(addRpt);
     d.users.forEach(upsertUser);
     renderUsers(d.users);
@@ -1207,6 +1839,908 @@ startGPS = function() {
     }, null, { enableHighAccuracy: true, timeout: 8000 });
   }
 };
+
+
+/* ═══════════════════════════════════════════
+   RESCUER TRACKING
+   Receives live GPS from Flutter app via
+   Socket.io. Shows distinct helmet markers
+   with status colours on the reporter map.
+═══════════════════════════════════════════ */
+var rMarkerMap    = {};      // { rescuerId: L.marker }
+var rTrailMap     = {};      // { rescuerId: L.polyline }
+var rescuerVisible = true;
+
+function initRescuers(list) {
+  (list || []).forEach(function(r){ upsertRescuer(r); });
+  updateRescuerCount();
+}
+
+function upsertRescuer(r) {
+  var statusColors = { available:'#16a34a', on_mission:'#d97706', unreachable:'#6b7280' };
+  var statusLabels = { available:'Available', on_mission:'On Mission', unreachable:'Unreachable' };
+  var isOnline = r.online !== false;
+  var col      = isOnline ? (statusColors[r.status] || '#6b7280') : '#9ca3af';
+  var lbl      = isOnline ? (statusLabels[r.status] || r.status)  : 'Offline';
+  var since    = r.lastSeen ? new Date(r.lastSeen).toLocaleTimeString() : '—';
+
+  // Offline time label
+  var offlineLabel = '';
+  if (!isOnline && r.offlineSince) {
+    var offMs = Date.now() - new Date(r.offlineSince).getTime();
+    var offH  = Math.floor(offMs / 3600000);
+    var offM  = Math.floor((offMs % 3600000) / 60000);
+    offlineLabel = offH > 0 ? offH + 'h ' + offM + 'm ago' : offM + 'm ago';
+  }
+
+  var html =
+    '<div class="rm-wrap" style="opacity:' + (isOnline ? '1' : '0.55') + '">' +
+      '<div class="rm-pin ' + (isOnline ? (r.status||'available') : 'unreachable') + '">' +
+        (isOnline ? '🪖' : '🪖') +
+      '</div>' +
+      '<div class="rm-lbl" style="' + (isOnline ? '' : 'background:rgba(0,0,0,.5)') + '">' +
+        esc(r.name) + (isOnline ? '' : ' (offline)') +
+      '</div>' +
+    '</div>';
+
+  var popup =
+    '<div class="pop">' +
+      '<h3>' + (isOnline ? '🪖' : '⬜') + ' ' + esc(r.name) + '</h3>' +
+      '<p style="color:var(--muted);font-size:12px;margin:2px 0 4px">' + esc(r.team) + '</p>' +
+      (r.area ? '<p style="margin-bottom:5px"><span style="background:#eff6ff;color:#1d4ed8;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700">Area: ' + esc(r.area) + '</span></p>' : '') +
+      '<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:3px">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + col + ';flex-shrink:0;display:inline-block"></span>' +
+        '<span style="color:' + col + ';font-weight:700">' + lbl + '</span>' +
+        (!isOnline ? '<span style="color:var(--muted);font-size:10px"> · went offline ' + offlineLabel + '</span>' : '') +
+      '</div>' +
+      '<p style="font-size:10px;color:var(--muted)">Last GPS: ' + since + '</p>' +
+      (!isOnline ? '<p style="font-size:10px;color:#f59e0b;margin-top:3px">Visible for 24h after going offline</p>' : '') +
+    '</div>';
+
+  if (rMarkerMap[r.id]) {
+    rMarkerMap[r.id].setLatLng([r.lat, r.lng]);
+    rMarkerMap[r.id].getPopup().setContent(popup);
+    // Update icon to reflect new status
+    rMarkerMap[r.id].setIcon(L.divIcon({ className:'', html:html, iconSize:[36,52], iconAnchor:[18,48], popupAnchor:[0,-50] }));
+  } else {
+    var icon = L.divIcon({ className:'', html:html, iconSize:[36,52], iconAnchor:[18,48], popupAnchor:[0,-50] });
+    var m = L.marker([r.lat, r.lng], { icon:icon, zIndexOffset:2000 }).addTo(map);
+    m.bindPopup(popup);
+    rMarkerMap[r.id] = m;
+    if (!rescuerVisible) map.removeLayer(m);
+  }
+
+  // Draw GPS trail
+  if (r.trail && r.trail.length > 1) {
+    var pts = r.trail.map(function(p){ return [p.lat, p.lng]; });
+    pts.push([r.lat, r.lng]);
+    if (rTrailMap[r.id]) {
+      rTrailMap[r.id].setLatLngs(pts);
+    } else {
+      rTrailMap[r.id] = L.polyline(pts, {
+        color: col, weight:2, opacity:0.5, dashArray:'4 4'
+      }).addTo(map);
+      if (!rescuerVisible) map.removeLayer(rTrailMap[r.id]);
+    }
+  }
+}
+
+function removeRescuer(id) {
+  if (rMarkerMap[id]) { map.removeLayer(rMarkerMap[id]); delete rMarkerMap[id]; }
+  if (rTrailMap[id])  { map.removeLayer(rTrailMap[id]);  delete rTrailMap[id];  }
+  updateRescuerCount();
+}
+
+function toggleRescuerLayer() {
+  rescuerVisible = !rescuerVisible;
+  var btn = document.getElementById('rescuer-toggle');
+  btn.classList.toggle('off', !rescuerVisible);
+  Object.values(rMarkerMap).forEach(function(m){
+    if (rescuerVisible) m.addTo(map); else map.removeLayer(m);
+  });
+  Object.values(rTrailMap).forEach(function(t){
+    if (rescuerVisible) t.addTo(map); else map.removeLayer(t);
+  });
+}
+
+function updateRescuerCount() {
+  var all     = Object.keys(rMarkerMap).length;
+  var online  = Object.values(rMarkerMap).filter(function(m){ return m._online; }).length;
+  var offline = all - online;
+  var label   = online > 0 ? online + (offline > 0 ? '+' + offline : '') : (all || '0');
+  document.getElementById('rescuer-count').textContent = label;
+  document.getElementById('rescuer-toggle').classList.toggle('off', all === 0);
+}
+
+// Hook into socket init — add rescuer listeners
+var _origInitSocket_resc = initSocket;
+initSocket = function() {
+  _origInitSocket_resc();
+
+  // Seed existing rescuers from init payload
+  socket.on('init', function(d) {
+    if (d.rescuers) initRescuers(d.rescuers);
+  });
+
+  socket.on('rescuers:list', function(list) {
+    // Full refresh — remove stale, upsert all current
+    var incoming = {};
+    list.forEach(function(r){ incoming[r.id] = true; upsertRescuer(r); });
+    Object.keys(rMarkerMap).forEach(function(id){
+      if (!incoming[id]) removeRescuer(id);
+    });
+    updateRescuerCount();
+  });
+
+  socket.on('rescuer:moved', function(d) {
+    // Partial update — just position + trail
+    if (rMarkerMap[d.id]) {
+      rMarkerMap[d.id].setLatLng([d.lat, d.lng]);
+      if (d.trail && d.trail.length > 1 && rTrailMap[d.id]) {
+        var pts = d.trail.map(function(p){ return [p.lat, p.lng]; });
+        pts.push([d.lat, d.lng]);
+        rTrailMap[d.id].setLatLngs(pts);
+      }
+    }
+  });
+};
+
+
+/* ── Volunteer count updater ── */
+function updateVolCount() {
+  fetch('/api/rescuers').then(function(r){return r.json();}).then(function(d){
+    var el = document.getElementById('vol-count');
+    if (d.count > 0) {
+      el.textContent = d.count + ' online';
+      el.style.display = 'inline-block';
+    } else {
+      el.style.display = 'none';
+    }
+  }).catch(function(){});
+}
+updateVolCount();
+setInterval(updateVolCount, 10000);
+
+
+/* ═══════════════════════════════════════════
+   AI SITUATION BRIEFING
+═══════════════════════════════════════════ */
+var lastBriefing = null;
+
+function openBriefing() {
+  document.getElementById('briefing-overlay').classList.add('show');
+  generateBriefing();
+}
+
+function closeBriefing() {
+  document.getElementById('briefing-overlay').classList.remove('show');
+}
+
+function generateBriefing() {
+  // Show loading
+  document.getElementById('bp-loading').style.display = 'flex';
+  document.getElementById('bp-content').style.display = 'none';
+  document.getElementById('bp-footer').style.display  = 'none';
+  document.getElementById('bp-sub').textContent = 'বিশ্লেষণ হচ্ছে…';
+
+  fetch('/api/briefing', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!d.ok) throw new Error(d.error || 'তৈরি ব্যর্থ হয়েছে');
+      lastBriefing = d.briefing;
+      renderBriefing(d.briefing);
+    })
+    .catch(function(e) {
+      document.getElementById('bp-loading').style.display = 'none';
+      document.getElementById('bp-content').style.display = 'block';
+      document.getElementById('bp-content').innerHTML =
+        '<div style="text-align:center;padding:32px;color:#c8192b">' +
+        '<div style="font-size:32px;margin-bottom:10px">⚠</div>' +
+        '<div style="font-weight:700;margin-bottom:6px">বিবরণী তৈরি ব্যর্থ হয়েছে</div>' +
+        '<div style="font-size:13px;color:#64748b">' + e.message + '</div>' +
+        '<div style="font-size:12px;color:#94a3b8;margin-top:8px">GROQ_API_KEY পরিবেশ ভেরিয়েবলে সেট আছে কিনা নিশ্চিত করুন</div>' +
+        '</div>';
+    });
+}
+
+function renderBriefing(b) {
+  document.getElementById('bp-loading').style.display = 'none';
+
+  var alertClass = b.alert_level || 'MODERATE';
+  var alertEmoji = { CRITICAL:'🔴', HIGH:'🟠', MODERATE:'🔵', LOW:'🟢' }[alertClass] || '🔵';
+  var alertBangla = { CRITICAL:'সর্বোচ্চ সতর্কতা', HIGH:'উচ্চ সতর্কতা', MODERATE:'মাঝারি সতর্কতা', LOW:'নিম্ন সতর্কতা' }[alertClass] || alertClass;
+
+  var ds = b.data_summary || {};
+  document.getElementById('bp-sub').textContent =
+    'Generated ' + (b.generated_at || '') +
+    ' · ' + (ds.crowd_reports || 0) + ' রিপোর্ট · ' +
+    (ds.gdacs_events || 0) + ' GDACS ইভেন্ট';
+
+  var html = '';
+
+  // Alert badge
+  html += '<div class="bp-alert ' + alertClass + '">' + alertEmoji + ' ' + alertBangla + '</div>';
+
+  // Summary
+  html += '<div class="bp-summary">' + esc(b.summary || '') + '</div>';
+
+  // Three paragraphs
+  var paras = [b.paragraph_1, b.paragraph_2, b.paragraph_3];
+  paras.forEach(function(p) {
+    if (!p) return;
+    html += '<div class="bp-section"><h3>' + esc(p.heading || '') + '</h3><p>' + esc(p.body || '') + '</p></div>';
+  });
+
+  // Key actions
+  if (b.key_actions && b.key_actions.length) {
+    html += '<div class="bp-section"><h3>তাৎক্ষণিক পদক্ষেপ</h3></div>';
+    html += '<div class="bp-actions">';
+    b.key_actions.forEach(function(a, i) {
+      html += '<div class="bp-action"><div class="act-num">' + (i+1) + '</div><span>' + esc(a) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // Priority districts
+  if (b.priority_districts && b.priority_districts.length) {
+    html += '<div class="bp-section"><h3>অগ্রাধিকার জেলাসমূহ</h3></div>';
+    html += '<div class="bp-districts">';
+    b.priority_districts.forEach(function(d) {
+      html += '<span class="bp-district">' + esc(d) + '</span>';
+    });
+    html += '</div>';
+  }
+
+  // Footnote
+  html += '<div class="bp-footnote">AI-তৈরি বিশ্লেষণ · মাঠ দলের সাথে যাচাই করুন · জরুরি: 999</div>';
+
+  document.getElementById('bp-content').innerHTML = html;
+  document.getElementById('bp-content').style.display = 'block';
+  document.getElementById('bp-footer').style.display  = 'flex';
+}
+
+function downloadBriefingPDF() {
+  var btn = document.querySelector('.bp-btn.primary');
+  btn.textContent = '⏳ তৈরি হচ্ছে…';
+  btn.disabled = true;
+
+  fetch('/api/briefing/pdf', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ briefing: lastBriefing })
+  })
+  .then(function(r){ return r.blob(); })
+  .then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'RescueAI_Briefing_' + new Date().toISOString().slice(0,10) + '.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.innerHTML = '⬇ PDF ডাউনলোড';
+    btn.disabled = false;
+  })
+  .catch(function(e) {
+    toast('PDF ব্যর্থ: ' + e.message);
+    btn.innerHTML = '⬇ PDF ডাউনলোড';
+    btn.disabled = false;
+  });
+}
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeBriefing();
+});
+
+
+/* ═══════════════════════════════════════════
+   VOICE REPORT SYSTEM
+   Web Speech API → Groq extraction → form fill
+═══════════════════════════════════════════ */
+var voiceLang        = 'bn-BD';
+var recognition      = null;
+var isListening      = false;
+var voiceTranscript  = '';
+var lastExtracted    = null;
+
+// District → lat/lng center map for auto-pinning
+var DISTRICT_COORDS = {
+  'Dhaka':[23.7,90.4],'Sylhet':[24.9,91.87],'Chattogram':[22.37,91.8],
+  'Rajshahi':[24.37,88.6],'Khulna':[22.8,89.55],'Barisal':[22.7,90.37],
+  'Rangpur':[25.74,89.25],'Mymensingh':[24.75,90.4],'Sunamganj':[25.07,91.4],
+  "Cox's Bazar":[21.45,92.0],'Cumilla':[23.46,91.18],'Gazipur':[23.99,90.41],
+  'Narayanganj':[23.62,90.5],'Bogura':[24.85,89.37],'Rangamati':[22.73,92.2],
+  'Sylhet':[24.9,91.87],'Noakhali':[22.87,91.1],'Feni':[23.0,91.4],
+  'Jamalpur':[24.9,89.94],'Tangail':[24.25,89.92],'Kishoreganj':[24.44,90.78],
+  'Netrokona':[24.88,90.73],'Habiganj':[24.37,91.42],'Moulvibazar':[24.48,91.78],
+  'Brahmanbaria':[23.96,91.12],'Narsingdi':[23.92,90.72],'Manikganj':[23.86,89.99],
+  'Munshiganj':[23.54,90.53],'Rajbari':[23.76,89.65],'Faridpur':[23.6,89.84],
+  'Gopalganj':[23.0,89.82],'Shariatpur':[23.2,90.43],'Madaripur':[23.16,90.2],
+  'Chandpur':[23.23,90.67],'Lakshmipur':[22.94,90.84],'Naogaon':[24.8,88.95],
+  'Natore':[24.42,89.0],'Pabna':[24.0,89.25],'Sirajganj':[24.45,89.7],
+  'Chapai Nawabganj':[24.6,88.28],'Joypurhat':[25.1,89.02],'Kushtia':[23.9,89.12],
+  'Jhenaidah':[23.54,89.17],'Chuadanga':[23.64,88.84],'Meherpur':[23.76,88.63],
+  'Magura':[23.48,89.42],'Narail':[23.17,89.5],'Jashore':[23.17,89.22],
+  'Khulna':[22.8,89.55],'Satkhira':[22.72,89.07],'Bagerhat':[22.67,89.78],
+  'Kurigram':[25.81,89.63],'Lalmonirhat':[25.92,89.45],'Nilphamari':[25.93,88.86],
+  'Gaibandha':[25.33,89.54],'Dinajpur':[25.63,88.63],'Panchagarh':[26.33,88.56],
+  'Thakurgaon':[26.04,88.45],'Bhola':[22.69,90.65],'Patuakhali':[22.35,90.33],
+  'Barguna':[22.1,90.12],'Pirojpur':[22.58,89.97],'Jhalokathi':[22.64,90.2],
+  'Khagrachhari':[23.12,91.98],'Bandarban':[22.2,92.22],'Sherpur':[25.02,90.02],
+};
+
+function openVoice() {
+  document.getElementById('voice-overlay').classList.add('show');
+  clearVoice();
+}
+function closeVoice() {
+  stopListening();
+  document.getElementById('voice-overlay').classList.remove('show');
+}
+
+function toggleMic() {
+  if (isListening) stopListening();
+  else startListening();
+}
+
+function startListening() {
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    toast('Speech recognition not supported in this browser. Try Chrome.');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.lang = voiceLang;
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = function() {
+    isListening = true;
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('mic-btn').textContent = '⏹';
+    document.getElementById('mic-status').textContent = 'শুনছি…';
+    document.getElementById('mic-status').className = 'mic-status listening';
+  };
+
+  recognition.onresult = function(e) {
+    var interim = '', final = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (final) voiceTranscript += final + ' ';
+    var display = voiceTranscript + interim;
+    var box = document.getElementById('voice-transcript');
+    box.textContent = display || 'Listening…';
+    box.className = 'transcript-box' + (display ? ' has-text' : ' empty');
+  };
+
+  recognition.onerror = function(e) {
+    if (e.error !== 'no-speech') toast('Mic error: ' + e.error);
+    stopListening();
+  };
+
+  recognition.onend = function() {
+    isListening = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('mic-btn').textContent = '🎤';
+    document.getElementById('mic-status').textContent = 'বলতে ট্যাপ করুন';
+    document.getElementById('mic-status').className = 'mic-status';
+    // Auto-extract if we have transcript
+    if (voiceTranscript.trim().length > 5) extractFromVoice();
+  };
+
+  recognition.start();
+}
+
+function stopListening() {
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  isListening = false;
+}
+
+function clearVoice() {
+  stopListening();
+  voiceTranscript = '';
+  lastExtracted = null;
+  var box = document.getElementById('voice-transcript');
+  box.textContent = 'দুর্যোগের বিবরণ বলুন — স্থান, ধরন এবং তীব্রতা…';
+  box.className = 'transcript-box empty';
+  document.getElementById('extracted-preview').classList.remove('show');
+  document.getElementById('vp-fill-btn').disabled = true;
+  document.getElementById('mic-btn').textContent = '🎤';
+  document.getElementById('mic-status').textContent = 'বলতে ট্যাপ করুন';
+  document.getElementById('mic-status').className = 'mic-status';
+}
+
+function extractFromVoice() {
+  var text = voiceTranscript.trim();
+  if (!text) return;
+
+  document.getElementById('mic-btn').classList.add('processing');
+  document.getElementById('mic-btn').textContent = '⏳';
+  document.getElementById('mic-status').textContent = 'AI extracting…';
+  document.getElementById('mic-status').className = 'mic-status processing';
+
+  fetch('/api/voice-extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text, lang: voiceLang })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    document.getElementById('mic-btn').classList.remove('processing');
+    document.getElementById('mic-btn').textContent = '🎤';
+    document.getElementById('mic-status').textContent = 'সম্পন্ন — ফর্ম পূরণ হচ্ছে…';
+    document.getElementById('mic-status').className = 'mic-status';
+
+    if (!d.ok) { toast('Extraction failed: ' + d.error); return; }
+
+    lastExtracted = d.extracted;
+    var e = d.extracted;
+
+    // Show extracted preview
+    document.getElementById('ep-type').textContent     = e.type     || '—';
+    document.getElementById('ep-severity').textContent = e.severity || '—';
+    document.getElementById('ep-district').textContent = e.district || '—';
+    document.getElementById('ep-location').textContent = e.location || '—';
+    document.getElementById('extracted-preview').classList.add('show');
+    document.getElementById('vp-fill-btn').disabled = false;
+  })
+  .catch(function(err) {
+    document.getElementById('mic-btn').classList.remove('processing');
+    document.getElementById('mic-btn').textContent = '🎤';
+    document.getElementById('mic-status').textContent = 'বলতে ট্যাপ করুন';
+    document.getElementById('mic-status').className = 'mic-status';
+    toast('AI error: ' + err.message);
+  });
+}
+
+function fillReportForm() {
+  if (!lastExtracted) return;
+  var e = lastExtracted;
+
+  // Switch to report tab
+  switchTab('report');
+
+  // Fill type
+  if (e.type) {
+    sType = e.type;
+    document.querySelectorAll('.tbtn').forEach(function(b){
+      b.classList.toggle('on', b.dataset.v === e.type);
+    });
+  }
+  // Fill severity
+  if (e.severity) {
+    sSev = e.severity;
+    document.querySelectorAll('.sevbtn').forEach(function(b){
+      b.classList.toggle('on', b.dataset.v === e.severity);
+    });
+  }
+  // Fill title
+  if (e.title) {
+    var tf = document.getElementById('f-title');
+    if (tf) tf.value = e.title;
+  }
+  // Fill description
+  if (e.description) {
+    var df = document.getElementById('f-desc');
+    if (df) df.value = e.description;
+  }
+  // Fill district dropdown
+  if (e.district && e.district !== 'unknown') {
+    var ds = document.getElementById('f-district');
+    if (ds) {
+      for (var i=0; i<ds.options.length; i++) {
+        if (ds.options[i].value.toLowerCase() === e.district.toLowerCase()) {
+          ds.selectedIndex = i; break;
+        }
+      }
+    }
+  }
+  // Fill location
+  if (e.location) {
+    var lf = document.getElementById('f-loc-name');
+    if (lf) lf.value = e.location;
+  }
+  // Auto-pin map to district
+  if (e.district && DISTRICT_COORDS[e.district]) {
+    var coords = DISTRICT_COORDS[e.district];
+    picked = { lat: coords[0], lng: coords[1] };
+    map.setView([coords[0], coords[1]], 10, { animate:true });
+    document.getElementById('coord-box').textContent =
+      'Lat: ' + coords[0].toFixed(5) + ',  Lng: ' + coords[1].toFixed(5);
+    toast('📍 Location pinned to ' + e.district);
+  }
+
+  closeVoice();
+  // Auto-submit after a brief delay so user sees the map pin
+  toast('✅ ভয়েস থেকে ফর্ম পূরণ হয়েছে — জমা দেওয়া হচ্ছে…');
+  setTimeout(function() {
+    submitReport();
+  }, 800);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   EARLY WARNING SYSTEM
+═══════════════════════════════════════════════════ */
+var activeWarnings = [];
+
+function handleEarlyWarnings(data) {
+  activeWarnings = data.warnings || [];
+  var count = data.count || 0;
+  var banner = document.getElementById('ew-banner');
+
+  if (count === 0) {
+    banner.classList.remove('active');
+    return;
+  }
+
+  banner.classList.add('active');
+  document.getElementById('ew-count').textContent = count;
+  document.getElementById('ew-title').textContent =
+    count === 1 ? 'Early Warning Issued — ' + activeWarnings[0].district
+                : count + ' Districts Under Early Warning';
+  var hazards = [...new Set(activeWarnings.map(function(w){ return w.hazard; }))];
+  document.getElementById('ew-sub').textContent =
+    'Elevated ' + hazards.join(' & ') + ' risk detected via live pipeline · ' +
+    new Date(data.issuedAt).toLocaleTimeString();
+
+  renderEwCards();
+}
+
+function renderEwCards() {
+  var container = document.getElementById('ew-cards');
+  if (!container) return;
+  container.innerHTML = '';
+
+  activeWarnings.slice().sort(function(a,b){ return b.score - a.score; }).forEach(function(w) {
+    var issuedTime = new Date(w.issuedAt).toLocaleString('en-BD', { timeZone:'Asia/Dhaka', hour:'2-digit', minute:'2-digit', month:'short', day:'numeric' });
+    var hazardLabel = w.hazard === 'flood' ? 'Flood hazard' : 'Drought hazard';
+    var boostText   = w.boost > 0 ? '+' + w.boost.toFixed(1) + ' above baseline' : 'Baseline elevated';
+
+    var card = document.createElement('div');
+    card.className = 'ew-card';
+    card.innerHTML =
+      '<div class="ew-card-header">' +
+        '<div class="ew-card-score">' + w.score.toFixed(1) + '</div>' +
+        '<div class="ew-card-info">' +
+          '<div class="ew-card-name">' + w.district + '</div>' +
+          '<div class="ew-card-hazard">' + hazardLabel + '</div>' +
+        '</div>' +
+        '<span class="ew-boost-tag">' + boostText + '</span>' +
+      '</div>' +
+      '<div class="ew-card-body">' +
+        '<div class="ew-card-action">' + (w.action || '') + '</div>' +
+        '<div class="ew-card-meta">' +
+          '<span>Flood: ' + w.floodScore + '</span>' +
+          '<span>Drought: ' + w.droughtScore + '</span>' +
+          '<span>Issued: ' + issuedTime + '</span>' +
+        '</div>' +
+      '</div>';
+
+    card.onclick = function() {
+      toggleEwDrawer();
+      if (typeof map !== 'undefined') {
+        var dc = DC[w.district];
+        if (dc) map.setView([dc[0], dc[1]], 9, { animate:true });
+      }
+    };
+    container.appendChild(card);
+  });
+}
+
+function toggleEwDrawer() {
+  document.getElementById('ew-drawer').classList.toggle('open');
+}
+
+// Close drawer on outside click
+document.addEventListener('click', function(e) {
+  var drawer = document.getElementById('ew-drawer');
+  var banner = document.getElementById('ew-banner');
+  if (drawer && drawer.classList.contains('open') &&
+      !drawer.contains(e.target) && !banner.contains(e.target)) {
+    drawer.classList.remove('open');
+  }
+});
+
+
+/* ═══════════════════════════════════════════════════
+   EXPOSED POPULATION CALCULATOR
+   Population data: BBS 2022 census (thousands)
+   Risk threshold: districts with live score >= 6.5
+   Formula: sum(pop_district * risk_factor) for at-risk districts
+═══════════════════════════════════════════════════ */
+var DIST_POP = {
+  'Sunamganj':2502,'Sylhet':3482,'Moulvibazar':1989,'Habiganj':2094,
+  'Netrokona':2299,'Mymensingh':5764,'Sherpur':1397,'Jamalpur':2392,
+  'Kishoreganj':3036,'Brahmanbaria':3107,'Narsingdi':2475,'Narayanganj':3382,
+  'Dhaka':12043,'Gazipur':4380,'Manikganj':1436,'Munshiganj':1533,
+  'Tangail':3925,'Rajbari':1139,'Faridpur':1958,'Madaripur':1277,
+  'Shariatpur':1214,'Gopalganj':1237,'Chandpur':2580,'Lakshmipur':1920,
+  'Cumilla':5871,'Feni':1537,'Noakhali':3532,'Chattogram':8885,
+  "Cox's Bazar":2607,'Rangamati':699,'Khagrachhari':718,'Bandarban':534,
+  'Bogura':3622,'Sirajganj':3476,'Natore':1861,'Pabna':2790,
+  'Naogaon':2823,'Rajshahi':2892,'Chapai Nawabganj':1808,'Joypurhat':987,
+  'Kushtia':2082,'Chuadanga':1225,'Meherpur':740,'Jhenaidah':1884,
+  'Magura':1004,'Jashore':2935,'Narail':783,'Khulna':2537,
+  'Satkhira':2004,'Bagerhat':1614,'Kurigram':2326,'Lalmonirhat':1402,
+  'Nilphamari':1908,'Rangpur':3482,'Gaibandha':2538,'Dinajpur':3237,
+  'Panchagarh':1031,'Thakurgaon':1506,'Bhola':2008,'Patuakhali':1780,
+  'Barguna':973,'Pirojpur':1262,'Barisal':2641,'Jhalokathi':742,
+};
+
+var DIST_BASELINE_FL = {
+  'Sunamganj':8.8,'Sylhet':7.6,'Moulvibazar':7.1,'Habiganj':7.4,
+  'Netrokona':7.6,'Mymensingh':7.2,'Sherpur':7.4,'Jamalpur':7.8,
+  'Kishoreganj':7.9,'Brahmanbaria':7.2,'Narsingdi':7.1,'Narayanganj':6.8,
+  'Dhaka':6.5,'Gazipur':6.4,'Manikganj':7.8,'Munshiganj':7.6,
+  'Tangail':7.8,'Rajbari':7.9,'Faridpur':7.8,'Madaripur':7.5,
+  'Shariatpur':8.0,'Gopalganj':7.2,'Chandpur':7.8,'Lakshmipur':7.4,
+  'Cumilla':7.0,'Feni':6.8,'Noakhali':7.3,'Chattogram':6.5,
+  "Cox's Bazar":6.8,'Rangamati':6.2,'Khagrachhari':5.8,'Bandarban':5.5,
+  'Bogura':7.4,'Sirajganj':8.8,'Natore':7.0,'Pabna':7.2,
+  'Naogaon':6.5,'Rajshahi':6.2,'Chapai Nawabganj':6.0,'Joypurhat':6.3,
+  'Kushtia':7.0,'Chuadanga':6.5,'Meherpur':6.2,'Jhenaidah':6.4,
+  'Magura':6.6,'Jashore':6.3,'Narail':6.5,'Khulna':7.0,
+  'Satkhira':7.2,'Bagerhat':7.0,'Kurigram':8.5,'Lalmonirhat':7.8,
+  'Nilphamari':7.2,'Rangpur':7.0,'Gaibandha':8.0,'Dinajpur':6.8,
+  'Panchagarh':6.5,'Thakurgaon':6.6,'Bhola':8.2,'Patuakhali':8.0,
+  'Barguna':7.8,'Pirojpur':7.5,'Barisal':7.2,'Jhalokathi':7.0,
+};
+
+var TOTAL_BD_POP = 170000; // thousands — BBS 2022
+
+function computeExposedPopulation(boosts) {
+  var exposed    = 0;
+  var critical   = 0;
+  var atRiskDistricts = 0;
+  var totalDistricts  = Object.keys(DIST_POP).length;
+
+  Object.keys(DIST_POP).forEach(function(name) {
+    var pop      = DIST_POP[name] || 0;
+    var base     = DIST_BASELINE_FL[name] || 5.0;
+    var boost    = (boosts && boosts[name]) ? (boosts[name].flood || 0) : 0;
+    var liveScore = Math.min(10, base + boost);
+
+    if (liveScore >= 6.5) {
+      // Exposed = full district population weighted by score above threshold
+      var factor = (liveScore - 6.5) / 3.5; // 0 at 6.5, 1 at 10.0
+      exposed += pop * (0.3 + factor * 0.5); // 30-80% of pop exposed
+      atRiskDistricts++;
+    }
+    if (liveScore >= 8.5) {
+      critical += pop;
+    }
+  });
+
+  return {
+    exposed:         Math.round(exposed),         // thousands
+    critical:        Math.round(critical),         // thousands
+    atRiskDistricts: atRiskDistricts,
+    totalDistricts:  totalDistricts,
+    pct:             Math.round(exposed / TOTAL_BD_POP * 100),
+  };
+}
+
+function formatPopNum(thousands) {
+  if (thousands >= 1000) return (thousands / 1000).toFixed(1) + 'M';
+  return thousands + 'K';
+}
+
+function updatePopStat(boosts) {
+  var stats = computeExposedPopulation(boosts);
+
+  var numEl  = document.getElementById('pop-stat-num');
+  var subEl  = document.getElementById('pop-stat-sub');
+  var barEl  = document.getElementById('pop-stat-bar');
+  var unitEl = document.getElementById('pop-stat-unit');
+  if (!numEl) return;
+
+  numEl.childNodes[0].textContent = formatPopNum(stats.exposed);
+  unitEl.textContent = ' people';
+
+  subEl.textContent = stats.atRiskDistricts + ' districts at elevated flood risk · ' +
+    stats.pct + '% of Bangladesh population';
+
+  barEl.style.width = Math.min(stats.pct * 2, 100) + '%';
+
+  // Colour shifts red as exposure increases
+  var col = stats.pct > 30 ? '#f87171' : stats.pct > 15 ? '#fbbf24' : '#4ade80';
+  barEl.style.background = col;
+  unitEl.style.color = col;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   REMOTE SENSING — NASA GIBS satellite layers
+   No API key required. Free for research use.
+═══════════════════════════════════════════════════ */
+var satLayers = {};
+var activeSatLayer = null;
+var SAT_SOURCES = {
+  true:  { label:'NASA MODIS True Colour',            layer:'MODIS_Terra_CorrectedReflectance_TrueColor',     opacity:0.70 },
+  ndvi:  { label:'NASA MODIS Vegetation Index (NDVI)', layer:'MODIS_Terra_NDVI_8Day',                         opacity:0.65 },
+};
+var GIBS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+
+function toggleSatLayer(type) {
+  var btn = document.getElementById('sat-' + type + '-btn');
+
+  // If same layer — turn off
+  if (activeSatLayer === type) {
+    if (satLayers[type]) map.removeLayer(satLayers[type]);
+    activeSatLayer = null;
+    btn.classList.remove('on');
+    document.getElementById('sat-source').classList.remove('show');
+    setSatMapStyle(false);
+    return;
+  }
+
+  // Turn off previous
+  if (activeSatLayer) {
+    if (satLayers[activeSatLayer]) map.removeLayer(satLayers[activeSatLayer]);
+    var prev = document.getElementById('sat-' + activeSatLayer + '-btn');
+    if (prev) prev.classList.remove('on');
+  }
+
+  activeSatLayer = type;
+  btn.classList.add('on');
+
+  var src = SAT_SOURCES[type];
+  if (!satLayers[type]) {
+    satLayers[type] = L.tileLayer.wms(GIBS_URL, {
+      layers:      src.layer,
+      format:      'image/png',
+      transparent: true,
+      opacity:     src.opacity,
+      attribution: 'NASA GIBS',
+      crs:         L.CRS.EPSG4326,
+      version:     '1.1.1',
+    });
+  }
+  satLayers[type].addTo(map);
+  setTimeout(function(){ if(satLayers[type]) satLayers[type].setZIndex(200); }, 100);
+
+  var badge = document.getElementById('sat-source');
+  badge.textContent = src.label + ' · ' + new Date().toLocaleDateString();
+  badge.classList.add('show');
+
+  setSatMapStyle(true);
+}
+
+function setSatMapStyle(on) {
+  // When satellite is on, give markers a white border for contrast
+  document.querySelectorAll('.pulse-core').forEach(function(el) {
+    el.style.border = on ? '3px solid rgba(255,255,255,.9)' : '2.5px solid rgba(255,255,255,.85)';
+    el.style.boxShadow = on ? '0 2px 8px rgba(0,0,0,.5)' : '0 2px 12px rgba(0,0,0,.3)';
+  });
+  // Also boost Leaflet circle marker borders for non-pulse maps
+  if (typeof markers !== 'undefined') {
+    Object.values(markers).forEach(function(m) {
+      if (m && m.setStyle) {
+        m.setStyle({ weight: on ? 2 : 1.5, color: on ? '#fff' : '#fff' });
+      }
+    });
+  }
+}
+
+var satLayers = {};
+var activeSatLayer = null;
+var SAT_SOURCES = {
+  true:  { label:'NASA MODIS True Colour',            layer:'MODIS_Terra_CorrectedReflectance_TrueColor',     opacity:0.65 },
+  ndvi:  { label:'NASA MODIS Vegetation Index (NDVI)', layer:'MODIS_Terra_NDVI_8Day',                         opacity:0.60 },
+};
+var GIBS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+
+function toggleSatLayer(type) {
+  var btn = document.getElementById('sat-' + type + '-btn');
+  if (activeSatLayer === type) {
+    if (satLayers[type]) map.removeLayer(satLayers[type]);
+    activeSatLayer = null;
+    btn.classList.remove('on');
+    document.getElementById('sat-source').classList.remove('show');
+    return;
+  }
+  if (activeSatLayer && satLayers[activeSatLayer]) {
+    map.removeLayer(satLayers[activeSatLayer]);
+    var prev = document.getElementById('sat-' + activeSatLayer + '-btn');
+    if (prev) prev.classList.remove('on');
+  }
+  activeSatLayer = type;
+  btn.classList.add('on');
+  var src = SAT_SOURCES[type];
+  if (!satLayers[type]) {
+    satLayers[type] = L.tileLayer.wms(GIBS_URL, {
+      layers: src.layer,
+      format:'image/png', transparent:true, opacity:src.opacity,
+      attribution:'NASA GIBS', crs:L.CRS.EPSG4326, version:'1.1.1',
+    });
+  }
+  satLayers[type].addTo(map);
+  setTimeout(function(){ if(satLayers[type]) satLayers[type].setZIndex(200); }, 100);
+  var badge = document.getElementById('sat-source');
+  badge.textContent = src.label + ' · ' + new Date().toLocaleDateString();
+  badge.classList.add('show');
+}
+
+
+/* ═══════════════════════════════════════════════════
+   FLOOD EXTENT OVERLAY — reporter map
+═══════════════════════════════════════════════════ */
+var floodExtentLayers = {};
+var RISK_BY_NAME = {};
+(function(){
+  RISK_DISTRICTS.forEach(function(d){ RISK_BY_NAME[d.n] = d; });
+})();
+
+function updateFloodExtent(boosts) { return; // disabled on reporter map
+  Object.values(floodExtentLayers).forEach(function(layers){
+    layers.forEach(function(l){ if(map && map.hasLayer(l)) map.removeLayer(l); });
+  });
+  floodExtentLayers = {};
+  if (!boosts || !map) return;
+
+  Object.keys(boosts).forEach(function(name) {
+    var b = boosts[name];
+    var d = RISK_BY_NAME[name];
+    if (!d || !b) return;
+    var floodBoost = b.flood || 0;
+    if (floodBoost < 0.4) return;
+
+    var col     = floodBoost >= 2.0 ? '#1d4ed8' : floodBoost >= 1.0 ? '#0ea5e9' : '#38bdf8';
+    var alertLvl = floodBoost >= 2.0 ? 'Red Alert' : floodBoost >= 1.0 ? 'Orange Alert' : 'Green Alert';
+    var dur     = floodBoost >= 2.0 ? '2.8s' : floodBoost >= 1.0 ? '3.4s' : '4.0s';
+    var sz      = 36;
+    var lat     = (d.y0+d.y1)/2, lng = (d.x0+d.x1)/2;
+
+    var ringsHtml = ['0s','1.0s','2.0s'].map(function(delay, i) {
+      return '<div style="position:absolute;inset:0;border-radius:50%;background:'+col+
+        ';animation:flood-pulse '+dur+' ease-out infinite;animation-delay:'+delay+
+        ';opacity:'+(i===0?'0.35':i===1?'0.2':'0.1')+'"></div>';
+    }).join('');
+
+    var html =
+      '<div style="position:relative;width:'+sz+'px;height:'+sz+'px">' +
+        ringsHtml +
+        '<div style="position:absolute;inset:6px;border-radius:50%;background:'+col+
+          ';opacity:0.7;z-index:2;border:2px solid rgba(255,255,255,.8)"></div>' +
+      '</div>';
+
+    var icon = L.divIcon({ className:'', html:html, iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-20] });
+    var evTitle = b.events && b.events[0] ? b.events[0].title.slice(0,55) : 'Active flood event';
+
+    var marker = L.marker([lat,lng],{icon:icon,zIndexOffset:1500}).addTo(map);
+    marker.bindTooltip(
+      '<div style="font-family:DM Sans,sans-serif;min-width:190px">'+
+        '<div style="font-size:13px;font-weight:700;margin-bottom:3px">🌊 '+name+'</div>'+
+        '<div style="font-size:11px;font-weight:700;color:'+col+';margin-bottom:3px">Flood Advisory · '+alertLvl+'</div>'+
+        '<div style="font-size:10px;color:#64748b">'+evTitle+'</div>'+
+        '<div style="font-size:10px;margin-top:4px;background:#eff6ff;color:#1d4ed8;border-radius:4px;padding:2px 6px;display:inline-block">+'+floodBoost.toFixed(1)+' flood boost</div>'+
+      '</div>',{sticky:true}
+    );
+    floodExtentLayers[name] = [marker];
+  });
+}// Hook into pipeline:update — fetch boosts and draw overlay
+if (typeof socket !== 'undefined') {
+  socket.on('pipeline:update', function(d) {
+    if (d.boosts) {
+      updateFloodExtent(d.boosts);
+      updatePopStat(d.boosts);
+    }
+    if (d.earlyWarnings) handleEarlyWarnings({ warnings: d.earlyWarnings, count: d.earlyWarnings.length, issuedAt: d.lastRun });
+  });
+}
+
+// Also fetch on init
+// Flood overlay: fetch after map is ready (called from initSocket)
+function fetchAndDrawFloodExtent() {
+  fetch('/api/risk-pipeline').then(function(r){ return r.json(); }).then(function(d){
+    if (d.boosts) updateFloodExtent(d.boosts);
+    if (d.boosts) updatePopStat(d.boosts);
+  }).catch(function(){});
+}
 
 </script>
 

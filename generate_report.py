@@ -131,13 +131,13 @@ def build_pdf(data, out_path):
     doc = SimpleDocTemplate(out_path, pagesize=A4,
                             topMargin=1.4*cm, bottomMargin=1.6*cm,
                             leftMargin=1.8*cm, rightMargin=1.8*cm,
-                            title="CrisisMap BD - "+district+" Risk Report")
+                            title="RescueAI - "+district+" Risk Report")
     st = getSampleStyleSheet()
     story = []
 
     # Header banner
     hdr = Table([[
-        Paragraph("<font color=white><b>CrisisMap BD</b>  District Risk Assessment Report</font>",
+        Paragraph("<font color=white><b>RescueAI</b>  District Risk Assessment Report</font>",
                   ParagraphStyle("hdr",parent=st["Normal"],fontSize=13,textColor=colors.white,leading=18)),
         Paragraph("<font color=white>"+gen_time+"</font>",
                   ParagraphStyle("hdrt",parent=st["Normal"],fontSize=8,textColor=colors.white,
@@ -294,7 +294,7 @@ def build_pdf(data, out_path):
     story.append(HRFlowable(width="100%",thickness=0.5,color=C_BORDER))
     story.append(Spacer(1,0.12*cm))
     story.append(Paragraph(
-        "CrisisMap BD  |  Data: INFORM Subnational Risk Index 2022 (EU JRC / UN OCHA / MoDMR Bangladesh) + GDACS Live Feed  |  "+gen_time,
+        "RescueAI  |  Data: INFORM Subnational Risk Index 2022 (EU JRC / UN OCHA / MoDMR Bangladesh) + GDACS Live Feed  |  "+gen_time,
         ParagraphStyle("ft",parent=st["Normal"],fontSize=7,textColor=C_GREY,alignment=TA_CENTER)))
     story.append(Paragraph(
         "Auto-generated for field use. Verify with local authorities before deployment. Emergency: 999",

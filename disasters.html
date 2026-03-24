@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RescueAI — Live Disasters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{
+  --bg:#f5f4f0; --surface:#ffffff; --surface2:#f0eeea; --surface3:#e8e5df;
+  --border:#e2dfd8; --border2:#cbc8c0;
+  --text:#1a1916; --sub:#6b6860; --muted:#9e9b94;
+  --bd-green:#006a4e; --bd-red:#d42638;
+  --sev-c:#d42638; --sev-h:#d97706; --sev-m:#ca8a04; --sev-l:#16a34a;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── HEADER ── */
+header{
+  position:sticky;top:0;z-index:200;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:56px;
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-flag{width:28px;height:20px;border-radius:3px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;display:flex;}
+.lf-green{flex:1;background:var(--bd-green);display:flex;align-items:center;justify-content:center;}
+.lf-red{width:10px;height:10px;border-radius:50%;background:var(--bd-red);margin-left:3px;}
+.logo h1{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.3px;}
+.logo h1 span{color:var(--bd-red);}
+.logo-sub{font-size:12px;color:var(--muted);font-weight:400;margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.live-pill{display:flex;align-items:center;gap:6px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:#16a34a;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#16a34a;animation:blink 1.3s steps(1) infinite;}
+@keyframes blink{50%{opacity:.2;}}
+.report-link{display:flex;align-items:center;gap:5px;padding:7px 14px;background:var(--bd-red);color:#fff;text-decoration:none;font-size:12px;font-weight:600;border-radius:6px;transition:all .15s;}
+.report-link:hover{background:#b91c2c;transform:translateY(-1px);box-shadow:var(--shadow-md);}
+.last-update{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
+
+/* ── STATS STRIP ── */
+.stats-strip{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;padding:0 24px;gap:0;overflow-x:auto;
+}
+.stat-card{
+  flex:1;min-width:120px;padding:14px 16px;border-right:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.stat-card:last-child{border-right:none;}
+.stat-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.stat-body{}
+.stat-val{font-size:22px;font-weight:700;color:var(--text);line-height:1;}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;font-weight:500;}
+.stat-card.danger .stat-val{color:var(--sev-c);}
+.stat-card.warn   .stat-val{color:var(--sev-h);}
+.stat-card.ok     .stat-val{color:var(--sev-l);}
+
+/* ── LAYOUT ── */
+.content{display:flex;flex:1;height:calc(100vh - 56px - 65px);overflow:hidden;}
+
+/* ── MAP SECTION ── */
+.map-section{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+.leaflet-container{background:#e8e4dc !important;}
+.leaflet-control-zoom a{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--border) !important;box-shadow:var(--shadow) !important;}
+.leaflet-control-attribution{background:rgba(255,255,255,.85) !important;color:var(--muted) !important;font-size:9px !important;}
+.map-overlay-tl{position:absolute;top:12px;left:12px;z-index:500;display:flex;flex-direction:column;gap:6px;}
+.map-badge{background:rgba(255,255,255,.93);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;color:var(--sub);backdrop-filter:blur(4px);display:flex;align-items:center;gap:5px;}
+.filter-pills{background:rgba(255,255,255,.93);border:1px solid var(--border);border-radius:20px;padding:4px 6px;display:flex;gap:4px;backdrop-filter:blur(4px);}
+.f-pill{padding:3px 10px;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:var(--sub);border-radius:14px;cursor:pointer;transition:all .15s;}
+.f-pill.active{background:var(--bd-red);color:#fff;}
+.f-pill:hover:not(.active){background:var(--border);color:var(--text);}
+.legend-box{position:absolute;bottom:20px;left:12px;z-index:500;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow);}
+.legend-title{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.legend-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;color:var(--sub);font-size:12px;}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:360px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.sidebar-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sidebar-title{font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;}
+.sidebar-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.sort-row{display:flex;gap:4px;margin-top:10px;}
+.sort-btn{padding:4px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;transition:all .12s;}
+.sort-btn.active{background:var(--text);color:#fff;border-color:var(--text);}
+.rpt-list{flex:1;overflow-y:auto;}
+.rpt-list::-webkit-scrollbar{width:3px;}
+.rpt-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* report card */
+.rpt-card{padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;animation:card-in .3s ease;}
+.rpt-card:hover{background:var(--surface2);}
+@keyframes card-in{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+.rpt-card-top{display:flex;align-items:flex-start;gap:10px;}
+.rpt-emoji{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.rpt-meta{flex:1;min-width:0;}
+.rpt-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:4px;}
+.rpt-tags{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.sev-badge{padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-radius:4px;}
+.sev-critical{background:#fee2e2;color:var(--sev-c);}
+.sev-high{background:#fef3c7;color:var(--sev-h);}
+.sev-medium{background:#fefce8;color:var(--sev-m);}
+.sev-low{background:#dcfce7;color:var(--sev-l);}
+.tag{padding:2px 6px;font-size:10px;font-weight:500;border-radius:4px;background:var(--surface2);color:var(--muted);}
+.rpt-desc{font-size:11px;color:var(--sub);margin-top:6px;line-height:1.5;}
+.rpt-footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;}
+.rpt-by{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;}
+.rpt-time{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;}
+.new-badge{background:#fef9c3;border:1px solid #fde047;color:#a16207;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.3px;}
+
+/* NEW report flash */
+@keyframes flash-new{0%{background:#fef9c3;}100%{background:transparent;}}
+.rpt-card.new-flash{animation:flash-new 1.5s ease,card-in .3s ease;}
+
+/* detail drawer */
+.detail-drawer{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--bd-red);padding:16px 18px;z-index:600;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -4px 20px rgba(0,0,0,.1);}
+.detail-drawer.open{transform:translateY(0);}
+.dd-close{position:absolute;top:12px;right:14px;background:var(--surface2);border:1px solid var(--border);color:var(--sub);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;}
+.dd-title{font-size:16px;font-weight:700;margin-bottom:6px;padding-right:60px;}
+.dd-desc{font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:10px;}
+.dd-tags{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* popup */
+.leaflet-popup-content-wrapper{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--border) !important;border-radius:8px !important;box-shadow:var(--shadow-md) !important;}
+.leaflet-popup-tip{background:var(--surface) !important;}
+.leaflet-popup-close-button{color:var(--muted) !important;}
+.p-inner{font-family:'DM Sans',sans-serif;min-width:200px;}
+.p-inner h3{font-size:14px;font-weight:600;margin-bottom:4px;}
+.p-inner p{font-size:12px;color:var(--sub);line-height:1.5;margin-bottom:6px;}
+.p-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.p-tag{padding:2px 6px;font-size:10px;font-weight:600;border-radius:4px;background:var(--surface2);color:var(--muted);}
+
+/* pulse ring for critical markers */
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.6;}100%{transform:scale(2.2);opacity:0;}}
+.pulse-ring{position:absolute;top:50%;left:50%;width:32px;height:32px;margin:-16px;border-radius:50%;animation:pulse-ring 1.8s ease-out infinite;}
+.crisis-wrap{position:relative;width:32px;height:32px;}
+.crisis-marker{width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.2);cursor:pointer;}
+.crisis-marker span{transform:rotate(45deg);font-size:14px;line-height:1;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+
+/* toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(50px);background:var(--text);color:#fff;padding:10px 20px;font-size:12px;font-weight:500;border-radius:20px;z-index:9999;transition:transform .25s ease;pointer-events:none;box-shadow:var(--shadow-md);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* empty */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:13px;padding:40px;}
+.empty-icon{font-size:36px;opacity:.3;}
+
+/* responsive */
+@media(max-width:900px){
+  .content{flex-direction:column;}
+  .sidebar{width:100%;height:42vh;border-left:none;border-top:1px solid var(--border);}
+  .stats-strip{padding:0 12px;}
+  .stat-card{min-width:100px;padding:10px 12px;}
+}
+
+/* ── SATELLITE TOGGLE ── */
+.sat-toggle {
+  position:absolute; bottom:52px; left:12px; z-index:500;
+  display:flex; flex-direction:column; gap:5px;
+}
+.sat-btn {
+  background:rgba(255,255,255,.94); border:1px solid rgba(0,0,0,.12);
+  border-radius:8px; padding:6px 11px; font-size:11px;
+  font-weight:700; cursor:pointer; color:#475569;
+  backdrop-filter:blur(4px); box-shadow:0 2px 8px rgba(0,0,0,.12);
+  display:flex; align-items:center; gap:6px;
+  transition:all .15s; font-family:'DM Sans',-apple-system,sans-serif;
+  white-space:nowrap;
+}
+.sat-btn:hover { background:#fff; color:#0f172a; }
+.sat-btn.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+.sat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.sat-source {
+  position:absolute; bottom:8px; left:12px; z-index:500;
+  background:rgba(0,0,0,.6); color:rgba(255,255,255,.8);
+  border-radius:4px; padding:3px 8px; font-size:9px;
+  display:none; pointer-events:none;
+  font-family:'DM Sans',-apple-system,sans-serif;
+}
+.sat-source.show { display:block; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-flag"><div class="lf-green"><div class="lf-red"></div></div></div>
+    <div>
+      <h1>Rescue<span>AI</span></h1>
+      <div class="logo-sub">Live Disaster Dashboard · Bangladesh</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="last-update" id="last-update">Connecting…</span>
+    <div class="live-pill"><div class="live-dot"></div><span id="conn-lbl">Live</span></div>
+    <a class="report-link" href="/" target="_blank">＋ Submit Report ↗</a>
+  </div>
+</header>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+  <div class="stat-card danger">
+    <div class="stat-icon" style="background:#fee2e2">🚨</div>
+    <div class="stat-body"><div class="stat-val" id="s-critical">0</div><div class="stat-lbl">Critical</div></div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-icon" style="background:#fef3c7">⚠️</div>
+    <div class="stat-body"><div class="stat-val" id="s-high">0</div><div class="stat-lbl">High</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#e0f2fe">🌊</div>
+    <div class="stat-body"><div class="stat-val" id="s-flood">0</div><div class="stat-lbl">Floods</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f3e8ff">🌀</div>
+    <div class="stat-body"><div class="stat-val" id="s-cyclone">0</div><div class="stat-lbl">Cyclones</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fce7f3">🔥</div>
+    <div class="stat-body"><div class="stat-val" id="s-fire">0</div><div class="stat-lbl">Fires</div></div>
+  </div>
+  <div class="stat-card ok">
+    <div class="stat-icon" style="background:#dcfce7">📋</div>
+    <div class="stat-body"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total Reports</div></div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+  <!-- MAP -->
+  <div class="map-section">
+    <div id="map"></div>
+    <div class="sat-toggle">
+  <button class="sat-btn" id="sat-true-btn" onclick="toggleSatLayer('true')">
+    <span class="sat-dot" style="background:#1d4ed8"></span> Satellite View
+  </button>
+  <button class="sat-btn" id="sat-ndvi-btn" onclick="toggleSatLayer('ndvi')">
+    <span class="sat-dot" style="background:#16a34a"></span> Vegetation (NDVI)
+  </button>
+  <button class="sat-btn" id="sat-firms-btn" onclick="toggleSatLayer('firms')">
+    <span class="sat-dot" style="background:#dc2626"></span> Thermal Hotspots
+  </button>
+</div>
+<div class="sat-source" id="sat-source"></div>
+    <div class="map-overlay-tl">
+      <div class="map-badge">🇧🇩 Bangladesh · Real-time</div>
+      <div class="filter-pills" id="map-filters">
+        <button class="f-pill active" onclick="setMapFilter(this,'all')">All</button>
+        <button class="f-pill" onclick="setMapFilter(this,'flood')">🌊</button>
+        <button class="f-pill" onclick="setMapFilter(this,'cyclone')">🌀</button>
+        <button class="f-pill" onclick="setMapFilter(this,'fire')">🔥</button>
+        <button class="f-pill" onclick="setMapFilter(this,'landslide')">⛰</button>
+        <button class="f-pill" onclick="setMapFilter(this,'critical')">🔴</button>
+      </div>
+    </div>
+    <div class="legend-box">
+      <div class="legend-title">Severity</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#d42638"></div>Critical</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#d97706"></div>High</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ca8a04"></div>Medium</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#16a34a"></div>Low</div>
+    </div>
+    <!-- Detail drawer -->
+    <div class="detail-drawer" id="detail-drawer">
+      <button class="dd-close" onclick="closeDrawer()">✕ Close</button>
+      <div class="dd-title" id="dd-title"></div>
+      <div class="dd-desc"  id="dd-desc"></div>
+      <div class="dd-tags"  id="dd-tags"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <span>Live Incident Feed</span>
+        <span class="live-pill" style="font-size:11px;padding:3px 9px"><div class="live-dot"></div><span id="feed-count">0</span> reports</span>
+      </div>
+      <div class="sidebar-sub" id="sidebar-sub">Receiving real-time updates…</div>
+      <div class="sort-row">
+        <button class="sort-btn active" onclick="setSort(this,'time')">🕐 Newest</button>
+        <button class="sort-btn" onclick="setSort(this,'severity')">🔴 Severity</button>
+        <button class="sort-btn" onclick="setSort(this,'district')">📍 District</button>
+      </div>
+    </div>
+    <div class="rpt-list" id="rpt-list">
+      <div class="empty"><div class="empty-icon">📡</div><div>Waiting for reports…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var DI={
+  flood:{e:'🌊',c:'#3b82f6',bg:'#eff6ff'},cyclone:{e:'🌀',c:'#8b5cf6',bg:'#f5f3ff'},
+  fire:{e:'🔥',c:'#ef4444',bg:'#fef2f2'},landslide:{e:'⛰',c:'#92400e',bg:'#fef3c7'},
+  storm:{e:'⛈',c:'#64748b',bg:'#f8fafc'},drought:{e:'☀',c:'#f59e0b',bg:'#fffbeb'},
+  riverbank:{e:'🏞',c:'#06b6d4',bg:'#ecfeff'},heatwave:{e:'🌡',c:'#f97316',bg:'#fff7ed'},
+  other:{e:'⚠',c:'#6b7280',bg:'#f9fafb'}
+};
+var SC={critical:'#d42638',high:'#d97706',medium:'#ca8a04',low:'#16a34a'};
+var SEV_ORDER={critical:0,high:1,medium:2,low:3};
+
+var map, socket;
+var reports=[], rMarkers={};
+var mapFilter='all', sortMode='time';
+var newIds=new Set();
+
+// ── INIT ──────────────────────────────────────────────
+window.addEventListener('load', function(){
+  initMap();
+  initSocket();
+});
+
+function initMap(){
+  map=L.map('map',{center:[23.7,90.35],zoom:7,minZoom:6,maxZoom:14,maxBounds:[[19.5,87.0],[27.0,94.0]]});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+}
+
+function initSocket(){
+  socket=io();
+  socket.on('connect',function(){
+    document.getElementById('conn-lbl').textContent='Live';
+    document.getElementById('last-update').textContent='Connected '+new Date().toLocaleTimeString();
+  });
+  socket.on('disconnect',function(){
+    document.getElementById('conn-lbl').textContent='Offline';
+    document.getElementById('conn-lbl').parentElement.style.background='#fee2e2';
+    document.getElementById('conn-lbl').parentElement.style.borderColor='#fca5a5';
+    document.getElementById('conn-lbl').parentElement.style.color='#d42638';
+  });
+  socket.on('init',function(d){
+    d.reports.forEach(function(r){addReport(r,false);});
+    updateStats();
+    renderList();
+    document.getElementById('last-update').textContent='Updated '+new Date().toLocaleTimeString();
+  });
+  socket.on('report:new',function(r){
+    addReport(r,true);
+    updateStats();
+    renderList();
+    toast('🆕 '+r.title);
+    document.getElementById('last-update').textContent='Updated '+new Date().toLocaleTimeString();
+  });
+}
+
+// ── REPORTS ──────────────────────────────────────────
+function addReport(r,isNew){
+  // deduplicate
+  if(reports.find(function(x){return x.id===r.id;}))return;
+  reports.unshift(r);
+  if(isNew)newIds.add(r.id);
+  addMarker(r);
+}
+
+function addMarker(r){
+  var info=DI[r.type]||DI.other;
+  var col=SC[r.severity]||'#6b7280';
+  var isCrit=r.severity==='critical';
+  var pulse=isCrit?'<div class="pulse-ring" style="background:'+col+'22;border:2px solid '+col+'44"></div>':'';
+  var html='<div class="crisis-wrap">'+pulse+'<div class="crisis-marker" style="background:'+col+'"><span>'+info.e+'</span></div></div>';
+  var icon=L.divIcon({className:'',html:html,iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-34]});
+  var m=L.marker([r.lat,r.lng],{icon:icon}).addTo(map);
+  m.bindPopup(makePopup(r));
+  m.on('click',function(){showDrawer(r);});
+  rMarkers[r.id]=m;
+}
+
+function makePopup(r){
+  var info=DI[r.type]||DI.other;
+  var t=relTime(r.time);
+  return '<div class="p-inner"><h3>'+info.e+' '+esc(r.title)+'</h3><p>'+esc(r.desc.slice(0,100))+(r.desc.length>100?'…':'')+'</p><div class="p-tags"><span class="sev-badge sev-'+r.severity+'">'+r.severity+'</span><span class="p-tag">📍 '+esc(r.location)+'</span><span class="p-tag">'+t+'</span></div></div>';
+}
+
+// ── DRAWER ──────────────────────────────────────────
+function showDrawer(r){
+  var info=DI[r.type]||DI.other;
+  document.getElementById('dd-title').textContent=info.e+' '+r.title;
+  document.getElementById('dd-desc').textContent=r.desc;
+  document.getElementById('dd-tags').innerHTML=
+    '<span class="sev-badge sev-'+r.severity+'">'+r.severity+'</span>'+
+    '<span class="tag">📍 '+esc(r.location)+'</span>'+
+    '<span class="tag">'+esc(r.district||'Bangladesh')+'</span>'+
+    '<span class="tag">👤 '+esc(r.reporter)+'</span>'+
+    '<span class="tag">'+relTime(r.time)+'</span>';
+  document.getElementById('detail-drawer').classList.add('open');
+}
+function closeDrawer(){document.getElementById('detail-drawer').classList.remove('open');}
+
+// ── LIST RENDER ──────────────────────────────────────
+function renderList(){
+  var list=document.getElementById('rpt-list');
+  var items=getFiltered();
+  document.getElementById('feed-count').textContent=items.length;
+  document.getElementById('sidebar-sub').textContent=items.length+' incidents shown · '+new Date().toLocaleTimeString();
+
+  if(!items.length){list.innerHTML='<div class="empty"><div class="empty-icon">📡</div><div>No incidents match this filter</div></div>';return;}
+  list.innerHTML='';
+
+  var sorted=items.slice().sort(function(a,b){
+    if(sortMode==='severity')return (SEV_ORDER[a.severity]||9)-(SEV_ORDER[b.severity]||9);
+    if(sortMode==='district')return (a.district||'').localeCompare(b.district||'');
+    return new Date(b.time)-new Date(a.time);
+  });
+
+  sorted.forEach(function(r){
+    var info=DI[r.type]||DI.other;
+    var isNew=newIds.has(r.id);
+    var card=document.createElement('div');
+    card.className='rpt-card'+(isNew?' new-flash':'');
+    card.innerHTML=
+      '<div class="rpt-card-top">'+
+        '<div class="rpt-emoji" style="background:'+info.bg+'">'+info.e+'</div>'+
+        '<div class="rpt-meta">'+
+          '<div class="rpt-title">'+esc(r.title)+(isNew?' <span class="new-badge">NEW</span>':'')+'</div>'+
+          '<div class="rpt-tags">'+
+            '<span class="sev-badge sev-'+r.severity+'">'+r.severity+'</span>'+
+            '<span class="tag">'+esc(r.district||r.location)+'</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="rpt-desc">'+esc(r.desc.slice(0,90))+(r.desc.length>90?'…':'')+'</div>'+
+      '<div class="rpt-footer">'+
+        '<span class="rpt-by">👤 '+esc(r.reporter)+'</span>'+
+        '<span class="rpt-time">'+relTime(r.time)+'</span>'+
+      '</div>';
+    card.onclick=function(){
+      if(rMarkers[r.id]){map.setView([r.lat,r.lng],11,{animate:true});rMarkers[r.id].openPopup();}
+      showDrawer(r);
+    };
+    list.appendChild(card);
+  });
+}
+
+function getFiltered(){
+  if(mapFilter==='all')return reports;
+  if(mapFilter==='critical')return reports.filter(function(r){return r.severity==='critical';});
+  return reports.filter(function(r){return r.type===mapFilter;});
+}
+
+// ── FILTERS & SORT ───────────────────────────────────
+function setMapFilter(btn,f){
+  document.querySelectorAll('.f-pill').forEach(function(p){p.classList.remove('active');});
+  btn.classList.add('active');
+  mapFilter=f;
+  // show/hide markers
+  Object.keys(rMarkers).forEach(function(id){
+    var r=reports.find(function(x){return x.id===id;});
+    if(!r)return;
+    var show=mapFilter==='all'||(mapFilter==='critical'?r.severity==='critical':r.type===mapFilter);
+    if(show){if(!map.hasLayer(rMarkers[id]))map.addLayer(rMarkers[id]);}
+    else{if(map.hasLayer(rMarkers[id]))map.removeLayer(rMarkers[id]);}
+  });
+  renderList();
+}
+
+function setSort(btn,mode){
+  document.querySelectorAll('.sort-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  sortMode=mode;
+  renderList();
+}
+
+// ── STATS ─────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('s-total').textContent=reports.length;
+  document.getElementById('s-critical').textContent=reports.filter(function(r){return r.severity==='critical';}).length;
+  document.getElementById('s-high').textContent=reports.filter(function(r){return r.severity==='high';}).length;
+  document.getElementById('s-flood').textContent=reports.filter(function(r){return r.type==='flood';}).length;
+  document.getElementById('s-cyclone').textContent=reports.filter(function(r){return r.type==='cyclone';}).length;
+  document.getElementById('s-fire').textContent=reports.filter(function(r){return r.type==='fire';}).length;
+}
+
+// ── HELPERS ──────────────────────────────────────────
+function relTime(iso){
+  var d=new Date(iso),now=Date.now(),diff=now-d;
+  if(diff<60000)return 'just now';
+  if(diff<3600000)return Math.floor(diff/60000)+'m ago';
+  if(diff<86400000)return Math.floor(diff/3600000)+'h ago';
+  return d.toLocaleDateString();
+}
+function toast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3500);
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var satLayers = {};
+var activeSatLayer = null;
+var SAT_SOURCES = {
+  true:  { label:'NASA MODIS True Colour',            layer:'MODIS_Terra_CorrectedReflectance_TrueColor',     opacity:0.70 },
+  ndvi:  { label:'NASA MODIS Vegetation Index (NDVI)', layer:'MODIS_Terra_NDVI_8Day',                         opacity:0.65 },
+  firms: { label:'NASA FIRMS Thermal Anomalies',       layer:'FIRMS_VIIRS_NOAA20_Thermal_Anomalies_375m_NRT', opacity:0.85 },
+};
+var GIBS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+
+function toggleSatLayer(type) {
+  var btn = document.getElementById('sat-' + type + '-btn');
+
+  // If same layer — turn off
+  if (activeSatLayer === type) {
+    if (satLayers[type]) map.removeLayer(satLayers[type]);
+    activeSatLayer = null;
+    btn.classList.remove('on');
+    document.getElementById('sat-source').classList.remove('show');
+    setSatMapStyle(false);
+    return;
+  }
+
+  // Turn off previous
+  if (activeSatLayer) {
+    if (satLayers[activeSatLayer]) map.removeLayer(satLayers[activeSatLayer]);
+    var prev = document.getElementById('sat-' + activeSatLayer + '-btn');
+    if (prev) prev.classList.remove('on');
+  }
+
+  activeSatLayer = type;
+  btn.classList.add('on');
+
+  var src = SAT_SOURCES[type];
+  if (!satLayers[type]) {
+    satLayers[type] = L.tileLayer.wms(GIBS_URL, {
+      layers:      src.layer,
+      format:      'image/png',
+      transparent: true,
+      opacity:     src.opacity,
+      attribution: 'NASA GIBS',
+      crs:         L.CRS.EPSG4326,
+      version:     '1.1.1',
+    });
+  }
+  satLayers[type].addTo(map);
+  setTimeout(function(){ if(satLayers[type]) satLayers[type].setZIndex(200); }, 100);
+
+  var badge = document.getElementById('sat-source');
+  badge.textContent = src.label + ' · ' + new Date().toLocaleDateString();
+  badge.classList.add('show');
+
+  setSatMapStyle(true);
+}
+</script>
+</body>
+</html>

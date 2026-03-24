@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RescueAI — Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:     #0a0e1a;
+  --bg2:    #0f1626;
+  --bg3:    #141d2e;
+  --border: rgba(255,255,255,.07);
+  --text:   #e2e8f0;
+  --muted:  #64748b;
+  --blue:   #3b82f6;
+  --cyan:   #06b6d4;
+  --green:  #10b981;
+  --amber:  #f59e0b;
+  --red:    #ef4444;
+  --purple: #8b5cf6;
+  --glow-b: 0 0 20px rgba(59,130,246,.3);
+  --glow-g: 0 0 20px rgba(16,185,129,.3);
+  --glow-r: 0 0 20px rgba(239,68,68,.3);
+}
+
+html,body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ── NAV ── */
+nav{
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  padding:0 24px; height:50px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.nav-brand{display:flex;align-items:center;gap:10px;}
+.nav-flag{width:22px;height:15px;border-radius:2px;overflow:hidden;display:flex;flex-shrink:0;border:1px solid rgba(255,255,255,.1);}
+.nf-g{width:100%;background:#006a4e;display:flex;align-items:center;justify-content:center;}
+.nf-r{width:9px;height:9px;border-radius:50%;background:#f42a41;}
+.nav-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.2px;}
+.nav-title em{font-style:normal;color:var(--cyan);}
+.nav-sub{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.nav-links{display:flex;gap:4px;}
+.nav-link{padding:5px 11px;border-radius:5px;text-decoration:none;font-size:11px;font-weight:600;color:var(--muted);transition:all .12s;}
+.nav-link:hover{background:var(--bg3);color:var(--text);}
+.nav-link.active{background:rgba(59,130,246,.15);color:var(--blue);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.5s ease-in-out infinite;margin-right:4px;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── LAYOUT ── */
+.page{padding:20px 24px;max-width:1400px;margin:0 auto;}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+.stat-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  border-radius:10px 10px 0 0;
+}
+.stat-card.blue::before{background:var(--blue);}
+.stat-card.cyan::before{background:var(--cyan);}
+.stat-card.red::before{background:var(--red);}
+.stat-card.amber::before{background:var(--amber);}
+.stat-card.green::before{background:var(--green);}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px;}
+.stat-value{font-size:24px;font-weight:700;letter-spacing:-.5px;font-family:'JetBrains Mono',monospace;}
+.stat-card.blue  .stat-value{color:var(--blue);}
+.stat-card.cyan  .stat-value{color:var(--cyan);}
+.stat-card.red   .stat-value{color:var(--red);}
+.stat-card.amber .stat-value{color:var(--amber);}
+.stat-card.green .stat-value{color:var(--green);}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* ── GRID ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+.grid-1-2{display:grid;grid-template-columns:1fr 2fr;gap:14px;margin-bottom:14px;}
+.grid-2-1{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+
+/* ── CHART CARD ── */
+.chart-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:16px 18px;
+}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.chart-title{font-size:12px;font-weight:700;color:var(--text);letter-spacing:-.1px;}
+.chart-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.chart-badge{
+  font-size:9px;font-weight:700;border-radius:4px;padding:2px 7px;
+  font-family:'JetBrains Mono',monospace;
+}
+.badge-live{background:rgba(16,185,129,.15);color:var(--green);}
+.badge-2022{background:rgba(100,116,139,.12);color:var(--muted);}
+.badge-bbs {background:rgba(6,182,212,.12);color:var(--cyan);}
+
+/* ── LEADERBOARD ── */
+.lb-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--border);
+}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{font-size:11px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;width:20px;text-align:right;flex-shrink:0;}
+.lb-rank.top1{color:var(--red);}
+.lb-rank.top3{color:var(--amber);}
+.lb-name{flex:1;font-size:12px;font-weight:600;color:var(--text);}
+.lb-div{font-size:10px;color:var(--muted);}
+.lb-bar-wrap{width:80px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;flex-shrink:0;}
+.lb-bar{height:100%;border-radius:3px;transition:width .6s ease;}
+.lb-score{font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;width:28px;text-align:right;flex-shrink:0;}
+
+/* ── PIPELINE STATUS ── */
+.pipeline-row{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;
+}
+.pipeline-row:last-child{border-bottom:none;}
+.pl-icon{width:20px;text-align:center;font-size:13px;flex-shrink:0;}
+.pl-label{color:var(--muted);flex:1;}
+.pl-value{font-family:'JetBrains Mono',monospace;color:var(--text);font-size:11px;}
+
+/* ── HAZARD TABLE ── */
+.htable{width:100%;border-collapse:collapse;font-size:11px;}
+.htable th{text-align:left;padding:6px 8px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.htable td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);}
+.htable tr:last-child td{border-bottom:none;}
+.htable tr:hover td{background:rgba(255,255,255,.02);}
+.htable .name{font-weight:600;color:var(--text);}
+.htable .score{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.htable .mini-bar{width:50px;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;display:inline-block;vertical-align:middle;}
+.htable .mini-fill{height:100%;border-radius:2px;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── CANVAS HEIGHT ── */
+.ch-200{height:200px;}
+.ch-180{height:180px;}
+.ch-260{height:260px;}
+.ch-300{height:300px;}
+.ch-160{height:160px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-flag"><div class="nf-g"><div class="nf-r"></div></div></div>
+    <div>
+      <div class="nav-title">Rescue<em>AI</em> <span style="font-size:10px;color:var(--muted);font-weight:400">— Analytics Dashboard</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <div class="live-dot"></div>
+    <span style="font-size:11px;color:var(--green);font-weight:600" id="last-run-lbl">Connecting…</span>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/">Reporter Map</a>
+    <a class="nav-link" href="/risk-map">Risk Map</a>
+    <a class="nav-link" href="/live-disasters">Live Disasters</a>
+    <a class="nav-link active" href="/dashboard">Dashboard</a>
+    <a class="nav-link" href="/methodology">Methodology</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card red">
+      <div class="stat-label">Districts Early Warning</div>
+      <div class="stat-value" id="s-ew">—</div>
+      <div class="stat-sub">Score ≥ 8.5 threshold</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Population Exposed</div>
+      <div class="stat-value" id="s-pop">—</div>
+      <div class="stat-sub">Elevated flood risk</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">GDACS Events Active</div>
+      <div class="stat-value" id="s-gdacs">—</div>
+      <div class="stat-sub">South Asia region</div>
+    </div>
+    <div class="stat-card cyan">
+      <div class="stat-label">Districts Boosted</div>
+      <div class="stat-value" id="s-boosted">—</div>
+      <div class="stat-sub">Live pipeline active</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Crowd Reports</div>
+      <div class="stat-value" id="s-reports">—</div>
+      <div class="stat-sub">Last 24 hours</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: Flood risk bar chart + Compound radar -->
+  <div class="grid-2">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Top 15 Districts — Flood Hazard Score</div>
+          <div class="chart-sub">INFORM 2022 baseline + live GDACS pipeline boost</div>
+        </div>
+        <span class="chart-badge badge-live">● LIVE</span>
+      </div>
+      <div class="ch-260"><canvas id="chart-flood"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Multi-Hazard Risk Distribution</div>
+          <div class="chart-sub">Flood · Drought · Erosion across all 64 districts</div>
+        </div>
+        <span class="chart-badge badge-2022">INFORM 2022</span>
+      </div>
+      <div class="ch-260"><canvas id="chart-scatter"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2: Compound leaderboard + Population bar + Pipeline -->
+  <div class="grid-3">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Compound Risk Leaderboard</div>
+          <div class="chart-sub">Districts with 2+ simultaneous hazards</div>
+        </div>
+        <span class="chart-badge badge-2022">64 districts</span>
+      </div>
+      <div id="leaderboard"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Population vs Flood Risk</div>
+          <div class="chart-sub">Bubble size = population (BBS 2022)</div>
+        </div>
+        <span class="chart-badge badge-bbs">BBS 2022</span>
+      </div>
+      <div class="ch-260"><canvas id="chart-bubble"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Pipeline Status</div>
+          <div class="chart-sub">Automated risk assessment</div>
+        </div>
+        <span class="chart-badge badge-live">● LIVE</span>
+      </div>
+      <div id="pipeline-status"></div>
+      <div style="margin-top:14px">
+        <div class="chart-title" style="margin-bottom:10px">Live Boost by District</div>
+        <div class="ch-160"><canvas id="chart-boosts"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 3: Drought leaderboard table + Erosion bar -->
+  <div class="grid-2">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Drought Hazard — Top Districts</div>
+          <div class="chart-sub">Ranked by drought index score</div>
+        </div>
+        <span class="chart-badge badge-2022">INFORM 2022</span>
+      </div>
+      <div class="ch-200"><canvas id="chart-drought"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Riverbank Erosion Risk — Major Corridors</div>
+          <div class="chart-sub">CEGIS river corridor analysis</div>
+        </div>
+        <span class="chart-badge" style="background:rgba(16,185,129,.12);color:var(--green)">CEGIS</span>
+      </div>
+      <div class="ch-200"><canvas id="chart-erosion"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- ROW 4: Full hazard table -->
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Full District Risk Index — All 64 Districts</div>
+        <div class="chart-sub">INFORM 2022 · Flood · Drought · Erosion · Vulnerability · Coping Capacity</div>
+      </div>
+      <span class="chart-badge badge-2022">INFORM 2022 + CEGIS + BBS</span>
+    </div>
+    <div style="max-height:320px;overflow-y:auto">
+      <table class="htable" id="full-table"></table>
+    </div>
+  </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════
+   DIST_DATA — same as risk-map.html
+═══════════════════════════════════════════════════ */
+var DIST_DATA = [
+  {n:"Sunamganj",dv:"Sylhet",fl:8.8,dr:2.0,ov:7.2,vu:7.3,cp:7.5,er:6.2,pop:2502},
+  {n:"Sylhet",dv:"Sylhet",fl:7.6,dr:2.3,ov:6.3,vu:6.5,cp:6.8,er:5.8,pop:3482},
+  {n:"Moulvibazar",dv:"Sylhet",fl:7.1,dr:2.6,ov:6.0,vu:6.3,cp:6.7,er:5.0,pop:1989},
+  {n:"Habiganj",dv:"Sylhet",fl:7.4,dr:2.4,ov:6.2,vu:6.5,cp:6.8,er:6.0,pop:2094},
+  {n:"Netrokona",dv:"Mymensingh",fl:7.6,dr:2.8,ov:6.4,vu:6.7,cp:7.0,er:6.5,pop:2299},
+  {n:"Mymensingh",dv:"Mymensingh",fl:7.2,dr:3.0,ov:6.1,vu:6.4,cp:6.7,er:6.8,pop:5764},
+  {n:"Sherpur",dv:"Mymensingh",fl:7.4,dr:3.1,ov:6.2,vu:6.6,cp:6.9,er:6.2,pop:1397},
+  {n:"Jamalpur",dv:"Mymensingh",fl:7.8,dr:3.2,ov:6.5,vu:6.8,cp:7.0,er:9.1,pop:2392},
+  {n:"Kishoreganj",dv:"Dhaka",fl:7.9,dr:2.9,ov:6.6,vu:6.9,cp:7.1,er:7.1,pop:3036},
+  {n:"Brahmanbaria",dv:"Chattogram",fl:7.2,dr:2.5,ov:6.1,vu:6.4,cp:6.8,er:6.4,pop:3107},
+  {n:"Narsingdi",dv:"Dhaka",fl:7.1,dr:2.6,ov:6.0,vu:6.3,cp:6.6,er:6.0,pop:2475},
+  {n:"Narayanganj",dv:"Dhaka",fl:6.8,dr:2.7,ov:5.8,vu:6.1,cp:6.4,er:7.2,pop:3382},
+  {n:"Dhaka",dv:"Dhaka",fl:6.5,dr:2.8,ov:5.6,vu:5.9,cp:6.2,er:4.8,pop:12043},
+  {n:"Gazipur",dv:"Dhaka",fl:6.4,dr:2.9,ov:5.5,vu:5.8,cp:6.1,er:4.5,pop:4380},
+  {n:"Manikganj",dv:"Dhaka",fl:7.8,dr:2.5,ov:6.5,vu:6.8,cp:7.1,er:8.3,pop:1436},
+  {n:"Munshiganj",dv:"Dhaka",fl:7.6,dr:2.4,ov:6.3,vu:6.6,cp:6.9,er:7.8,pop:1533},
+  {n:"Tangail",dv:"Dhaka",fl:7.8,dr:3.0,ov:6.5,vu:6.8,cp:7.1,er:8.5,pop:3925},
+  {n:"Rajbari",dv:"Dhaka",fl:7.9,dr:2.8,ov:6.6,vu:6.9,cp:7.2,er:8.6,pop:1139},
+  {n:"Faridpur",dv:"Dhaka",fl:7.8,dr:2.6,ov:6.5,vu:6.8,cp:7.1,er:8.1,pop:1958},
+  {n:"Madaripur",dv:"Dhaka",fl:7.5,dr:2.7,ov:6.2,vu:6.5,cp:6.8,er:7.4,pop:1277},
+  {n:"Shariatpur",dv:"Dhaka",fl:8.0,dr:2.5,ov:6.7,vu:7.0,cp:7.3,er:8.4,pop:1214},
+  {n:"Gopalganj",dv:"Dhaka",fl:7.2,dr:2.8,ov:6.1,vu:6.4,cp:6.7,er:6.8,pop:1237},
+  {n:"Chandpur",dv:"Chattogram",fl:7.8,dr:2.4,ov:6.5,vu:6.8,cp:7.1,er:8.7,pop:2580},
+  {n:"Lakshmipur",dv:"Chattogram",fl:7.4,dr:2.6,ov:6.2,vu:6.5,cp:6.8,er:8.0,pop:1920},
+  {n:"Cumilla",dv:"Chattogram",fl:7.0,dr:2.7,ov:5.9,vu:6.2,cp:6.5,er:5.5,pop:5871},
+  {n:"Feni",dv:"Chattogram",fl:6.8,dr:2.8,ov:5.7,vu:6.0,cp:6.3,er:6.1,pop:1537},
+  {n:"Noakhali",dv:"Chattogram",fl:7.3,dr:2.6,ov:6.1,vu:6.4,cp:6.7,er:7.5,pop:3532},
+  {n:"Chattogram",dv:"Chattogram",fl:6.5,dr:2.9,ov:5.5,vu:5.8,cp:6.1,er:5.2,pop:8885},
+  {n:"Cox's Bazar",dv:"Chattogram",fl:6.8,dr:3.0,ov:5.7,vu:6.0,cp:6.3,er:5.5,pop:2607},
+  {n:"Rangamati",dv:"Chattogram",fl:6.2,dr:3.2,ov:5.3,vu:5.6,cp:5.9,er:4.2,pop:699},
+  {n:"Khagrachhari",dv:"Chattogram",fl:5.8,dr:3.4,ov:4.9,vu:5.2,cp:5.5,er:3.8,pop:718},
+  {n:"Bandarban",dv:"Chattogram",fl:5.5,dr:3.6,ov:4.6,vu:4.9,cp:5.2,er:3.5,pop:534},
+  {n:"Bogura",dv:"Rajshahi",fl:7.4,dr:4.2,ov:6.1,vu:6.4,cp:6.7,er:8.2,pop:3622},
+  {n:"Sirajganj",dv:"Rajshahi",fl:8.8,dr:3.8,ov:7.2,vu:7.5,cp:7.8,er:9.4,pop:3476},
+  {n:"Natore",dv:"Rajshahi",fl:7.0,dr:4.5,ov:5.8,vu:6.1,cp:6.4,er:5.0,pop:1861},
+  {n:"Pabna",dv:"Rajshahi",fl:7.2,dr:4.8,ov:6.0,vu:6.3,cp:6.6,er:5.8,pop:2790},
+  {n:"Naogaon",dv:"Rajshahi",fl:6.5,dr:5.8,ov:5.4,vu:5.7,cp:6.0,er:4.1,pop:2823},
+  {n:"Rajshahi",dv:"Rajshahi",fl:6.2,dr:6.2,ov:5.2,vu:5.5,cp:5.8,er:5.5,pop:2892},
+  {n:"Chapai Nawabganj",dv:"Rajshahi",fl:6.0,dr:5.5,ov:5.0,vu:5.3,cp:5.6,er:5.0,pop:1808},
+  {n:"Joypurhat",dv:"Rajshahi",fl:6.3,dr:5.0,ov:5.3,vu:5.6,cp:5.9,er:4.3,pop:987},
+  {n:"Kushtia",dv:"Khulna",fl:7.0,dr:5.2,ov:5.9,vu:6.2,cp:6.5,er:6.2,pop:2082},
+  {n:"Chuadanga",dv:"Khulna",fl:6.5,dr:5.8,ov:5.4,vu:5.7,cp:6.0,er:4.8,pop:1225},
+  {n:"Meherpur",dv:"Khulna",fl:6.2,dr:5.5,ov:5.2,vu:5.5,cp:5.8,er:4.2,pop:740},
+  {n:"Jhenaidah",dv:"Khulna",fl:6.4,dr:5.3,ov:5.3,vu:5.6,cp:5.9,er:4.0,pop:1884},
+  {n:"Magura",dv:"Khulna",fl:6.6,dr:4.8,ov:5.5,vu:5.8,cp:6.1,er:5.1,pop:1004},
+  {n:"Jashore",dv:"Khulna",fl:6.3,dr:5.0,ov:5.2,vu:5.5,cp:5.8,er:5.2,pop:2935},
+  {n:"Narail",dv:"Khulna",fl:6.5,dr:4.6,ov:5.4,vu:5.7,cp:6.0,er:5.8,pop:783},
+  {n:"Khulna",dv:"Khulna",fl:7.0,dr:4.2,ov:5.9,vu:6.2,cp:6.5,er:6.5,pop:2537},
+  {n:"Satkhira",dv:"Khulna",fl:7.2,dr:4.5,ov:6.0,vu:6.3,cp:6.6,er:6.3,pop:2004},
+  {n:"Bagerhat",dv:"Khulna",fl:7.0,dr:4.0,ov:5.9,vu:6.2,cp:6.5,er:6.8,pop:1614},
+  {n:"Kurigram",dv:"Rangpur",fl:8.5,dr:3.2,ov:7.0,vu:7.3,cp:7.6,er:9.2,pop:2326},
+  {n:"Lalmonirhat",dv:"Rangpur",fl:7.8,dr:3.5,ov:6.5,vu:6.8,cp:7.1,er:7.8,pop:1402},
+  {n:"Nilphamari",dv:"Rangpur",fl:7.2,dr:3.8,ov:6.0,vu:6.3,cp:6.6,er:7.0,pop:1908},
+  {n:"Rangpur",dv:"Rangpur",fl:7.0,dr:4.0,ov:5.9,vu:6.2,cp:6.5,er:6.8,pop:3482},
+  {n:"Gaibandha",dv:"Rangpur",fl:8.0,dr:3.6,ov:6.7,vu:7.0,cp:7.3,er:9.0,pop:2538},
+  {n:"Dinajpur",dv:"Rangpur",fl:6.8,dr:4.5,ov:5.7,vu:6.0,cp:6.3,er:5.5,pop:3237},
+  {n:"Panchagarh",dv:"Rangpur",fl:6.5,dr:4.2,ov:5.4,vu:5.7,cp:6.0,er:5.8,pop:1031},
+  {n:"Thakurgaon",dv:"Rangpur",fl:6.6,dr:4.4,ov:5.5,vu:5.8,cp:6.1,er:5.5,pop:1506},
+  {n:"Bhola",dv:"Barisal",fl:8.2,dr:2.8,ov:6.9,vu:7.2,cp:7.5,er:9.3,pop:2008},
+  {n:"Patuakhali",dv:"Barisal",fl:8.0,dr:2.9,ov:6.7,vu:7.0,cp:7.3,er:7.9,pop:1780},
+  {n:"Barguna",dv:"Barisal",fl:7.8,dr:3.0,ov:6.5,vu:6.8,cp:7.1,er:7.6,pop:973},
+  {n:"Pirojpur",dv:"Barisal",fl:7.5,dr:3.2,ov:6.2,vu:6.5,cp:6.8,er:7.3,pop:1262},
+  {n:"Barisal",dv:"Barisal",fl:7.2,dr:3.0,ov:6.1,vu:6.4,cp:6.7,er:7.0,pop:2641},
+  {n:"Jhalokathi",dv:"Barisal",fl:7.0,dr:3.1,ov:5.9,vu:6.2,cp:6.5,er:6.5,pop:742},
+];
+
+/* ── helpers ── */
+function scoreCol(v) {
+  if (v>=8.5) return '#ef4444';
+  if (v>=7.5) return '#f97316';
+  if (v>=6.5) return '#f59e0b';
+  if (v>=5.5) return '#3b82f6';
+  return '#64748b';
+}
+function compoundScore(d) {
+  var base = Math.max(d.fl, d.er||0);
+  var bonus = 0;
+  if (d.fl>=7 && (d.er||0)>=7) bonus+=1.5;
+  if (d.fl>=7 && d.cp>=6.5)    bonus+=1.0;
+  if (d.fl>=7 && d.dr>=5)      bonus+=0.5;
+  return Math.min(10, base+bonus);
+}
+function fmtPop(k) { return k>=1000?(k/1000).toFixed(1)+'M':k+'K'; }
+
+/* ── Chart defaults ── */
+Chart.defaults.color        = '#64748b';
+Chart.defaults.borderColor  = 'rgba(255,255,255,.06)';
+Chart.defaults.font.family  = "'Inter',-apple-system,sans-serif";
+Chart.defaults.font.size    = 10;
+
+/* ═══════════════════════════════════
+   CHART 1 — Flood risk horizontal bar
+════════════════════════════════════ */
+var liveBoosts = {};
+
+function buildFloodChart() {
+  var sorted = DIST_DATA.slice().sort(function(a,b){ return b.fl-a.fl; }).slice(0,15);
+  var labels = sorted.map(function(d){ return d.n; });
+  var base   = sorted.map(function(d){ return d.fl; });
+  var boosts = sorted.map(function(d){ return (liveBoosts[d.n]&&liveBoosts[d.n].flood)||0; });
+
+  var ctx = document.getElementById('chart-flood').getContext('2d');
+  if (window._floodChart) window._floodChart.destroy();
+  window._floodChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[
+        { label:'Baseline', data:base,
+          backgroundColor:sorted.map(function(d){ return scoreCol(d.fl)+'99'; }),
+          borderColor:sorted.map(function(d){ return scoreCol(d.fl); }),
+          borderWidth:1, borderRadius:3 },
+        { label:'Live Boost', data:boosts,
+          backgroundColor:'rgba(239,68,68,.5)',
+          borderColor:'#ef4444', borderWidth:1, borderRadius:3 },
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'top', labels:{ boxWidth:10, font:{size:10} } }, tooltip:{
+        callbacks:{ label:function(ctx){ return ' '+ctx.dataset.label+': '+ctx.parsed.x.toFixed(1); } }
+      }},
+      scales:{
+        x:{ stacked:false, min:0, max:11, grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ font:{family:"'JetBrains Mono',monospace",size:9} } },
+        y:{ ticks:{ font:{size:10}, color:'#94a3b8' }, grid:{ display:false } },
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   CHART 2 — Scatter: flood vs erosion
+════════════════════════════════════ */
+function buildScatterChart() {
+  var ctx = document.getElementById('chart-scatter').getContext('2d');
+  var data = DIST_DATA.map(function(d){
+    return { x:d.fl, y:d.er||0, label:d.n, dr:d.dr };
+  });
+  window._scatterChart = new Chart(ctx, {
+    type:'scatter',
+    data:{
+      datasets:[{
+        label:'Districts',
+        data:data,
+        backgroundColor:data.map(function(d){
+          var compound = Math.max(d.x, d.y);
+          return scoreCol(compound)+'bb';
+        }),
+        borderColor:data.map(function(d){ return scoreCol(Math.max(d.x,d.y)); }),
+        borderWidth:1,
+        pointRadius:data.map(function(d){ return 3+d.dr*0.4; }),
+        pointHoverRadius:7,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:function(ctx){ var d=ctx.raw; return d.label+' — Flood:'+d.x.toFixed(1)+' Erosion:'+d.y.toFixed(1); } } }
+      },
+      scales:{
+        x:{ title:{display:true,text:'Flood Hazard Score',color:'#64748b',font:{size:10}}, min:5,max:10, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{family:"'JetBrains Mono',monospace",size:9}} },
+        y:{ title:{display:true,text:'Erosion Risk Score',color:'#64748b',font:{size:10}}, min:3,max:10, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{family:"'JetBrains Mono',monospace",size:9}} },
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   CHART 3 — Bubble: pop vs flood
+════════════════════════════════════ */
+function buildBubbleChart() {
+  var ctx  = document.getElementById('chart-bubble').getContext('2d');
+  var maxP = 12043;
+  var data = DIST_DATA.map(function(d){
+    return { x:d.fl, y:d.vu, r:Math.max(4, (d.pop/maxP)*28), label:d.n, pop:d.pop };
+  });
+  window._bubbleChart = new Chart(ctx, {
+    type:'bubble',
+    data:{ datasets:[{ data:data,
+      backgroundColor:data.map(function(d){ return scoreCol(d.x)+'88'; }),
+      borderColor:data.map(function(d){ return scoreCol(d.x); }),
+      borderWidth:1,
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:function(ctx){ var d=ctx.raw; return d.label+' · Pop: '+fmtPop(d.pop)+' · Flood: '+d.x.toFixed(1); } } }
+      },
+      scales:{
+        x:{ title:{display:true,text:'Flood Risk',color:'#64748b',font:{size:10}}, min:4,max:10, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{size:9}} },
+        y:{ title:{display:true,text:'Vulnerability',color:'#64748b',font:{size:10}}, min:4,max:8, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{size:9}} },
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   CHART 4 — Drought bar
+════════════════════════════════════ */
+function buildDroughtChart() {
+  var sorted = DIST_DATA.slice().sort(function(a,b){ return b.dr-a.dr; }).slice(0,12);
+  var ctx = document.getElementById('chart-drought').getContext('2d');
+  window._droughtChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:sorted.map(function(d){ return d.n; }),
+      datasets:[{ label:'Drought Hazard', data:sorted.map(function(d){ return d.dr; }),
+        backgroundColor:'rgba(245,158,11,.25)', borderColor:'#f59e0b',
+        borderWidth:1, borderRadius:3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{font:{size:9},color:'#64748b',maxRotation:45}, grid:{display:false} },
+        y:{ min:0,max:8, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{family:"'JetBrains Mono',monospace",size:9}} }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   CHART 5 — Erosion bar
+════════════════════════════════════ */
+function buildErosionChart() {
+  var sorted = DIST_DATA.slice().sort(function(a,b){ return (b.er||0)-(a.er||0); }).slice(0,12);
+  var ctx = document.getElementById('chart-erosion').getContext('2d');
+  window._erosionChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:sorted.map(function(d){ return d.n; }),
+      datasets:[{ label:'Erosion Risk', data:sorted.map(function(d){ return d.er||0; }),
+        backgroundColor:'rgba(16,185,129,.25)', borderColor:'#10b981',
+        borderWidth:1, borderRadius:3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{font:{size:9},color:'#64748b',maxRotation:45}, grid:{display:false} },
+        y:{ min:0,max:10, grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{family:"'JetBrains Mono',monospace",size:9}} }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   CHART 6 — Live boosts bar
+════════════════════════════════════ */
+function buildBoostChart(boosts) {
+  var entries = Object.keys(boosts).map(function(n){ return {n:n, v:(boosts[n].flood||0)+(boosts[n].drought||0)}; })
+    .filter(function(e){ return e.v>0.1; })
+    .sort(function(a,b){ return b.v-a.v; }).slice(0,8);
+  if (!entries.length) return;
+  var ctx = document.getElementById('chart-boosts').getContext('2d');
+  if (window._boostChart) window._boostChart.destroy();
+  window._boostChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:entries.map(function(e){ return e.n; }),
+      datasets:[{ label:'Total boost', data:entries.map(function(e){ return e.v; }),
+        backgroundColor:'rgba(239,68,68,.4)', borderColor:'#ef4444',
+        borderWidth:1, borderRadius:3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{font:{size:9},color:'#64748b',maxRotation:30}, grid:{display:false} },
+        y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{font:{family:"'JetBrains Mono',monospace",size:9}} }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════
+   LEADERBOARD
+════════════════════════════════════ */
+function buildLeaderboard() {
+  var sorted = DIST_DATA.slice().sort(function(a,b){ return compoundScore(b)-compoundScore(a); }).slice(0,10);
+  var max    = compoundScore(sorted[0]);
+  var el     = document.getElementById('leaderboard');
+  el.innerHTML = sorted.map(function(d, i) {
+    var cs  = compoundScore(d);
+    var col = scoreCol(cs);
+    var rnk = i===0?'top1':i<3?'top3':'';
+    return '<div class="lb-row">'+
+      '<div class="lb-rank '+rnk+'">'+(i+1)+'</div>'+
+      '<div class="lb-name">'+d.n+'<div class="lb-div">'+d.dv+'</div></div>'+
+      '<div class="lb-bar-wrap"><div class="lb-bar" style="width:'+(cs/max*100).toFixed(0)+'%;background:'+col+'"></div></div>'+
+      '<div class="lb-score" style="color:'+col+'">'+cs.toFixed(1)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ═══════════════════════════════════
+   FULL TABLE
+════════════════════════════════════ */
+function buildTable() {
+  var sorted = DIST_DATA.slice().sort(function(a,b){ return b.fl-a.fl; });
+  var el = document.getElementById('full-table');
+  el.innerHTML =
+    '<thead><tr>'+
+      '<th>#</th><th>District</th><th>Division</th>'+
+      '<th>Flood</th><th>Drought</th><th>Erosion</th>'+
+      '<th>Vulnerability</th><th>Coping</th><th>Population</th>'+
+    '</tr></thead><tbody>'+
+    sorted.map(function(d, i) {
+      function cell(v, col) {
+        return '<td><span class="mini-bar"><span class="mini-fill" style="width:'+(v/10*100).toFixed(0)+'%;background:'+col+'"></span></span> '+
+          '<span class="score" style="color:'+col+'">'+v.toFixed(1)+'</span></td>';
+      }
+      return '<tr>'+
+        '<td style="color:var(--muted)">'+(i+1)+'</td>'+
+        '<td class="name">'+d.n+'</td>'+
+        '<td style="color:var(--muted);font-size:10px">'+d.dv+'</td>'+
+        cell(d.fl,'#3b82f6')+
+        cell(d.dr,'#f59e0b')+
+        cell(d.er||0,'#10b981')+
+        cell(d.vu,'#8b5cf6')+
+        cell(d.cp,'#06b6d4')+
+        '<td style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--cyan)">'+fmtPop(d.pop)+'</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody>';
+}
+
+/* ═══════════════════════════════════
+   PIPELINE STATUS
+════════════════════════════════════ */
+function buildPipelineStatus(data) {
+  var el = document.getElementById('pipeline-status');
+  var run = data.lastRun ? new Date(data.lastRun).toLocaleTimeString() : '—';
+  el.innerHTML = [
+    {icon:'✅', label:'Status', val: data.status||'—'},
+    {icon:'🌐', label:'GDACS Events', val: (data.eventCount||0)+' active'},
+    {icon:'📍', label:'Districts boosted', val: Object.keys(data.boosts||{}).length+' / 64'},
+    {icon:'🕐', label:'Last run', val: run},
+    {icon:'🔄', label:'Run count', val: '#'+(data.runCount||0)},
+  ].map(function(r){
+    return '<div class="pipeline-row"><div class="pl-icon">'+r.icon+'</div><div class="pl-label">'+r.label+'</div><div class="pl-value">'+r.val+'</div></div>';
+  }).join('');
+  document.getElementById('last-run-lbl').textContent = 'Last run: '+run;
+}
+
+/* ═══════════════════════════════════
+   STATS
+════════════════════════════════════ */
+function updateStats(pipelineData, ewData) {
+  // Exposed population
+  var exposed = 0;
+  DIST_DATA.forEach(function(d) {
+    var boost = (liveBoosts[d.n]&&liveBoosts[d.n].flood)||0;
+    var score = Math.min(10, d.fl+boost);
+    if (score>=6.5) { var f=(score-6.5)/3.5; exposed+=d.pop*(0.3+f*0.5); }
+  });
+  document.getElementById('s-pop').textContent  = fmtPop(Math.round(exposed));
+  document.getElementById('s-gdacs').textContent = pipelineData.eventCount||0;
+  document.getElementById('s-boosted').textContent= Object.keys(liveBoosts).length;
+  if (ewData) document.getElementById('s-ew').textContent = ewData.count||0;
+}
+
+/* ═══════════════════════════════════
+   INIT
+════════════════════════════════════ */
+window.addEventListener('load', function() {
+  buildScatterChart();
+  buildBubbleChart();
+  buildDroughtChart();
+  buildErosionChart();
+  buildLeaderboard();
+  buildTable();
+  buildFloodChart();
+
+  // Fetch pipeline data
+  fetch('/api/risk-pipeline').then(function(r){return r.json();}).then(function(d){
+    if(d.boosts) liveBoosts = d.boosts;
+    buildPipelineStatus(d);
+    buildFloodChart();
+    buildBoostChart(liveBoosts);
+    updateStats(d, null);
+  }).catch(function(){
+    buildPipelineStatus({status:'error',eventCount:0,boosts:{},runCount:0});
+  });
+
+  // Fetch early warnings
+  fetch('/api/early-warnings').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('s-ew').textContent = d.count||0;
+  }).catch(function(){});
+
+  // Fetch reports count
+  fetch('/api/rescuers').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('s-reports').textContent = d.count||0;
+  }).catch(function(){});
+});
+</script>
+</body>
+</html>

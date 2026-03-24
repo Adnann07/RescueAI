@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>RescueAI — Volunteer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --blue:#1d4ed8; --blue-light:#eff6ff; --blue-mid:#bfdbfe;
+  --red:#dc2626;  --green:#16a34a; --amber:#d97706; --grey:#6b7280;
+  --bg:#f8fafc;   --surface:#fff;  --border:#e2e8f0;
+  --text:#0f172a; --sub:#475569;   --muted:#94a3b8;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+
+/* ── HEADER ── */
+.page-header{
+  background:var(--blue);color:#fff;
+  padding:20px 24px 18px;
+}
+.page-header .brand{font-size:11px;font-weight:600;letter-spacing:1px;
+  opacity:.75;text-transform:uppercase;margin-bottom:4px;}
+.page-header h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
+.page-header p{font-size:13px;opacity:.8;margin-top:6px;line-height:1.5;}
+
+/* ── BODY ── */
+.page-body{padding:24px 20px;max-width:480px;margin:0 auto;}
+
+/* Info banner */
+.info-banner{
+  background:var(--blue-light);border:1px solid var(--blue-mid);
+  border-radius:10px;padding:12px 14px;margin-bottom:22px;
+  font-size:13px;color:var(--blue);line-height:1.6;
+}
+
+/* Form */
+.form-group{margin-bottom:16px;}
+label{
+  display:block;font-size:12px;font-weight:700;
+  color:var(--sub);letter-spacing:.4px;margin-bottom:7px;
+  text-transform:uppercase;
+}
+input, select{
+  width:100%;background:var(--surface);
+  border:1.5px solid var(--border);border-radius:10px;
+  padding:13px 14px;font-size:15px;color:var(--text);
+  outline:none;transition:border .15s,box-shadow .15s;
+  -webkit-appearance:none;appearance:none;
+  font-family:inherit;
+}
+input:focus, select:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(29,78,216,.1);
+}
+input::placeholder{color:var(--muted);}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+  padding-right:36px;cursor:pointer;
+}
+select option{color:var(--text);background:#fff;}
+
+/* Divider */
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+/* Join button */
+.join-btn{
+  width:100%;height:52px;background:var(--blue);color:#fff;
+  border:none;border-radius:10px;font-size:16px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .15s,transform .1s;font-family:inherit;
+  margin-top:8px;
+}
+.join-btn:not(:disabled):active{transform:scale(.98);}
+.join-btn:hover:not(:disabled){background:#1e40af;}
+.join-btn:disabled{opacity:.55;cursor:not-allowed;}
+
+/* Error */
+.error-box{
+  background:#fef2f2;border:1px solid #fecaca;border-radius:8px;
+  padding:11px 13px;margin-top:12px;display:none;
+  font-size:13px;color:#b91c1c;
+}
+.error-box.show{display:block;}
+
+/* Spinner */
+.spinner{
+  width:18px;height:18px;border:2.5px solid rgba(255,255,255,.35);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── ACTIVE SCREEN ── */
+#active-screen{display:none;flex-direction:column;min-height:100vh;}
+
+.active-header{
+  background:var(--blue);color:#fff;
+  padding:16px 20px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:10;
+}
+.conn-indicator{
+  width:8px;height:8px;border-radius:50%;background:#4ade80;
+  box-shadow:0 0 6px #4ade80;transition:background .3s;flex-shrink:0;
+}
+.conn-indicator.off{background:#fbbf24;box-shadow:0 0 6px #fbbf24;}
+.conn-text{font-size:13px;font-weight:600;opacity:.9;}
+.online-pill{
+  margin-left:auto;background:rgba(255,255,255,.2);
+  border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;
+  display:none;
+}
+.online-pill.show{display:block;}
+
+.active-body{padding:20px;display:flex;flex-direction:column;gap:14px;}
+
+/* Cards */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:16px;
+}
+.card-header{font-size:11px;font-weight:700;color:var(--muted);
+  letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;}
+.identity-row{display:flex;align-items:center;gap:12px;}
+.avatar{
+  width:44px;height:44px;border-radius:50%;
+  background:var(--blue-light);border:2px solid var(--blue-mid);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.identity-info .name{font-size:16px;font-weight:700;color:var(--text);}
+.identity-info .team{font-size:13px;color:var(--sub);margin-top:2px;}
+.identity-info .area-tag{
+  display:inline-block;margin-top:5px;
+  background:var(--blue-light);color:var(--blue);
+  border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;
+}
+
+.gps-row{display:flex;align-items:center;gap:10px;}
+.gps-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--green);flex-shrink:0;
+  animation:gps-pulse 2s infinite;
+}
+.gps-dot.waiting{background:var(--muted);animation:none;}
+@keyframes gps-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.4);}
+  50%{box-shadow:0 0 0 6px rgba(22,163,74,0);}
+}
+.gps-text{flex:1;}
+.gps-text .gps-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.gps-text .gps-val{font-size:13px;color:var(--text);font-family:monospace;margin-top:2px;}
+.gps-freq{
+  background:var(--blue-light);color:var(--blue);
+  border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;
+}
+
+/* Status tiles */
+.status-tile{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-radius:10px;
+  border:1.5px solid var(--border);background:var(--surface);
+  margin-bottom:8px;cursor:pointer;transition:all .15s;
+}
+.status-tile:last-child{margin-bottom:0;}
+.status-tile.active-status{border-width:2px;}
+.st-label{font-size:14px;color:var(--sub);flex:1;font-weight:500;}
+.status-tile.active-status .st-label{font-weight:700;}
+.st-dot{width:16px;height:16px;border-radius:50%;
+  border:2px solid var(--border);flex-shrink:0;transition:all .15s;}
+.status-tile.active-status .st-dot{border:none;}
+
+/* Leave */
+.leave-btn{
+  width:100%;height:46px;background:var(--surface);
+  border:1.5px solid var(--border);border-radius:10px;
+  color:var(--sub);font-size:14px;font-weight:600;
+  cursor:pointer;transition:background .15s;font-family:inherit;
+}
+.leave-btn:hover{background:var(--bg);}
+</style>
+</head>
+<body>
+
+<!-- ── JOIN SCREEN ─────────────────────────────────── -->
+<div id="join-screen">
+  <div class="page-header">
+    <div class="brand">RescueAI</div>
+    <h1>Volunteer Registration</h1>
+    <p>Join a rescue operation and share your live location with coordinators.</p>
+  </div>
+
+  <div class="page-body">
+    <div class="info-banner">
+      Your GPS location will be sent to the coordinator map every 5 seconds. Anyone can register — no approval needed.
+    </div>
+
+    <div class="form-group">
+      <label>Full Name</label>
+      <input id="inp-name" type="text" placeholder="e.g. Karim Ahmed"
+             autocomplete="name" inputmode="text"/>
+    </div>
+
+    <div class="form-group">
+      <label>Team / Organisation</label>
+      <input id="inp-team" type="text" placeholder="e.g. BDRCS Dhaka Unit 3"
+             autocomplete="organization" inputmode="text"/>
+    </div>
+
+    <div class="form-group">
+      <label>Rescue Area</label>
+      <select id="inp-area">
+        <option value="">— Select District —</option>
+        <option>Sunamganj</option><option>Sylhet</option>
+        <option>Moulvibazar</option><option>Habiganj</option>
+        <option>Netrokona</option><option>Mymensingh</option>
+        <option>Sherpur</option><option>Jamalpur</option>
+        <option>Kishoreganj</option><option>Brahmanbaria</option>
+        <option>Narsingdi</option><option>Narayanganj</option>
+        <option>Dhaka</option><option>Gazipur</option>
+        <option>Manikganj</option><option>Munshiganj</option>
+        <option>Tangail</option><option>Rajbari</option>
+        <option>Faridpur</option><option>Madaripur</option>
+        <option>Shariatpur</option><option>Gopalganj</option>
+        <option>Chandpur</option><option>Lakshmipur</option>
+        <option>Cumilla</option><option>Feni</option>
+        <option>Noakhali</option><option>Chattogram</option>
+        <option>Cox's Bazar</option><option>Rangamati</option>
+        <option>Khagrachhari</option><option>Bandarban</option>
+        <option>Bogura</option><option>Sirajganj</option>
+        <option>Natore</option><option>Pabna</option>
+        <option>Naogaon</option><option>Rajshahi</option>
+        <option>Chapai Nawabganj</option><option>Joypurhat</option>
+        <option>Kushtia</option><option>Chuadanga</option>
+        <option>Meherpur</option><option>Jhenaidah</option>
+        <option>Magura</option><option>Jashore</option>
+        <option>Narail</option><option>Khulna</option>
+        <option>Satkhira</option><option>Bagerhat</option>
+        <option>Kurigram</option><option>Lalmonirhat</option>
+        <option>Nilphamari</option><option>Rangpur</option>
+        <option>Gaibandha</option><option>Dinajpur</option>
+        <option>Panchagarh</option><option>Thakurgaon</option>
+        <option>Bhola</option><option>Patuakhali</option>
+        <option>Barguna</option><option>Pirojpur</option>
+        <option>Barisal</option><option>Jhalokathi</option>
+      </select>
+    </div>
+
+    <hr class="divider"/>
+
+    <div class="error-box" id="error-box"></div>
+
+    <button class="join-btn" id="join-btn" onclick="doJoin()">
+      <span id="join-label">Join Rescue Operation</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── ACTIVE SCREEN ────────────────────────────────── -->
+<div id="active-screen">
+  <div class="active-header">
+    <div class="conn-indicator" id="conn-dot"></div>
+    <span class="conn-text" id="conn-label">Connecting…</span>
+    <div class="online-pill" id="online-pill"></div>
+  </div>
+
+  <div class="active-body">
+
+    <!-- Identity card -->
+    <div class="card">
+      <div class="card-header">Volunteer</div>
+      <div class="identity-row">
+        <div class="avatar" id="av-icon">V</div>
+        <div class="identity-info">
+          <div class="name" id="disp-name">—</div>
+          <div class="team" id="disp-team">—</div>
+          <div class="area-tag" id="disp-area" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GPS card -->
+    <div class="card">
+      <div class="card-header">Live Location</div>
+      <div class="gps-row">
+        <div class="gps-dot waiting" id="gps-dot"></div>
+        <div class="gps-text">
+          <div class="gps-label">Coordinates</div>
+          <div class="gps-val" id="gps-val">Waiting for GPS…</div>
+        </div>
+        <div class="gps-freq">Every 5s</div>
+      </div>
+    </div>
+
+    <!-- Status card -->
+    <div class="card">
+      <div class="card-header">Your Status</div>
+
+      <div class="status-tile active-status" id="st-available"
+           style="border-color:#16a34a" onclick="setStatus('available')">
+        <div class="st-dot" style="background:#16a34a;border-color:#16a34a"></div>
+        <span class="st-label" style="color:#16a34a">Available</span>
+      </div>
+
+      <div class="status-tile" id="st-on_mission" onclick="setStatus('on_mission')">
+        <div class="st-dot"></div>
+        <span class="st-label">On Mission</span>
+      </div>
+
+      <div class="status-tile" id="st-unreachable" onclick="setStatus('unreachable')">
+        <div class="st-dot"></div>
+        <span class="st-label">Unreachable</span>
+      </div>
+    </div>
+
+    <!-- Leave -->
+    <button class="leave-btn" onclick="doLeave()">Leave Rescue Operation</button>
+
+  </div>
+</div>
+
+<script>
+var GPS_INTERVAL = 5000;
+var rescuerId = null;
+var gpsTimer  = null;
+var curStatus = 'available';
+
+var ST = {
+  available:   { color:'#16a34a', label:'Available' },
+  on_mission:  { color:'#d97706', label:'On Mission' },
+  unreachable: { color:'#6b7280', label:'Unreachable' },
+};
+
+function showError(msg) {
+  var el = document.getElementById('error-box');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideError() {
+  document.getElementById('error-box').classList.remove('show');
+}
+function setLoading(on) {
+  var btn = document.getElementById('join-btn');
+  var lbl = document.getElementById('join-label');
+  btn.disabled = on;
+  lbl.innerHTML = on ? '<div class="spinner"></div>' : 'Join Rescue Operation';
+}
+
+function getPosition() {
+  return new Promise(function(resolve, reject) {
+    if (!navigator.geolocation) { reject(new Error('GPS not supported')); return; }
+    navigator.geolocation.getCurrentPosition(resolve, reject,
+      { enableHighAccuracy:true, timeout:8000 });
+  });
+}
+
+async function doJoin() {
+  hideError();
+  var name = document.getElementById('inp-name').value.trim();
+  var team = document.getElementById('inp-team').value.trim();
+  var area = document.getElementById('inp-area').value.trim();
+  if (!name) { showError('Please enter your name.'); return; }
+  if (!team) { showError('Please enter your team or organisation.'); return; }
+  if (!area) { showError('Please select your rescue area.'); return; }
+
+  setLoading(true);
+
+  var lat = 23.7, lng = 90.35;
+  try {
+    var pos = await getPosition();
+    lat = pos.coords.latitude;
+    lng = pos.coords.longitude;
+  } catch(e) {}
+
+  try {
+    var res = await fetch('/api/rescuer/join', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, team, area, lat, lng })
+    });
+    var data = await res.json();
+    if (!data.ok) {
+      showError(data.error || 'Failed to join. Please try again.');
+      setLoading(false);
+      return;
+    }
+    rescuerId = data.id;
+    showActiveScreen(name, team, area);
+    startGPS();
+  } catch(e) {
+    showError('Connection failed: ' + e.message);
+    setLoading(false);
+  }
+}
+
+function showActiveScreen(name, team, area) {
+  document.getElementById('join-screen').style.display   = 'none';
+  document.getElementById('active-screen').style.display = 'flex';
+  document.getElementById('disp-name').textContent = name;
+  document.getElementById('disp-team').textContent = team;
+  document.getElementById('av-icon').textContent = name.charAt(0).toUpperCase();
+
+  if (area) {
+    var areaEl = document.getElementById('disp-area');
+    areaEl.textContent = 'Area: ' + area;
+    areaEl.style.display = 'inline-block';
+  }
+
+  document.getElementById('conn-dot').classList.remove('off');
+  document.getElementById('conn-label').textContent = 'Connected';
+  setLoading(false);
+}
+
+function startGPS() {
+  sendGPS();
+  gpsTimer = setInterval(sendGPS, GPS_INTERVAL);
+}
+
+async function sendGPS() {
+  try {
+    var pos = await getPosition();
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    document.getElementById('gps-val').textContent =
+      lat.toFixed(5) + ', ' + lng.toFixed(5);
+    document.getElementById('gps-dot').classList.remove('waiting');
+    document.getElementById('conn-dot').classList.remove('off');
+    document.getElementById('conn-label').textContent = 'Connected — GPS Active';
+
+    fetch('/api/rescuer/move', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id:rescuerId, lat, lng })
+    }).catch(function(){});
+  } catch(e) {
+    document.getElementById('gps-val').textContent = 'GPS signal lost';
+    document.getElementById('gps-dot').classList.add('waiting');
+    document.getElementById('conn-dot').classList.add('off');
+    document.getElementById('conn-label').textContent = 'GPS Error';
+  }
+}
+
+function setStatus(s) {
+  curStatus = s;
+  Object.keys(ST).forEach(function(k) {
+    var tile  = document.getElementById('st-' + k);
+    var dot   = tile.querySelector('.st-dot');
+    var label = tile.querySelector('.st-label');
+    if (k === s) {
+      tile.classList.add('active-status');
+      tile.style.borderColor = ST[k].color;
+      dot.style.background   = ST[k].color;
+      dot.style.borderColor  = ST[k].color;
+      label.style.color      = ST[k].color;
+    } else {
+      tile.classList.remove('active-status');
+      tile.style.borderColor = '';
+      dot.style.background   = '';
+      dot.style.borderColor  = '';
+      label.style.color      = '';
+    }
+  });
+  fetch('/api/rescuer/status', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id:rescuerId, status:s })
+  }).catch(function(){});
+}
+
+function doLeave() {
+  if (gpsTimer) clearInterval(gpsTimer);
+  fetch('/api/rescuer/leave', {
+    method:'DELETE',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id:rescuerId })
+  }).catch(function(){});
+  rescuerId = null;
+  document.getElementById('active-screen').style.display = 'none';
+  document.getElementById('join-screen').style.display   = 'block';
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-team').value = '';
+  document.getElementById('inp-area').value = '';
+}
+
+// Poll volunteer count
+setInterval(function() {
+  if (!rescuerId) return;
+  fetch('/api/rescuers').then(function(r){ return r.json(); }).then(function(d) {
+    var pill = document.getElementById('online-pill');
+    if (d.count > 0) {
+      pill.textContent = d.count + ' volunteer' + (d.count > 1 ? 's' : '') + ' online';
+      pill.classList.add('show');
+    } else pill.classList.remove('show');
+  }).catch(function(){});
+}, 10000);
+</script>
+</body>
+</html>

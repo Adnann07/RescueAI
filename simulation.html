@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RescueAI — Simulation Mode</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f5f6f8;--bg2:#ffffff;--bg3:#f0f2f6;
+  --border:#dde2ed;--border2:#e8ebf3;
+  --text:#18243a;--muted:#8595b0;--sub:#5b6e8a;
+  --blue:#1d4ed8;--cyan:#0284c7;--green:#16a34a;
+  --amber:#b45309;--red:#dc2626;--purple:#6d28d9;
+  --shadow:0 1px 3px rgba(20,40,90,.06),0 2px 10px rgba(20,40,90,.05);
+  --shadow-lg:0 4px 18px rgba(20,40,90,.10);
+}
+html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,sans-serif;height:100%;overflow:hidden;}
+.topbar{height:50px;background:var(--bg2);border-bottom:1.5px solid var(--border);display:flex;align-items:center;position:relative;z-index:200;padding:0 14px;box-shadow:var(--shadow);}
+.tb-brand{display:flex;align-items:center;gap:7px;margin-right:14px;}
+.tb-flag{width:21px;height:14px;border-radius:2px;overflow:hidden;border:1px solid var(--border);}
+.tf-g{width:100%;height:100%;background:#006a4e;display:flex;align-items:center;justify-content:center;}
+.tf-r{width:7px;height:7px;border-radius:50%;background:#f42a41;}
+.tb-title{font-size:13px;font-weight:700;color:var(--text);}
+.tb-title em{font-style:normal;color:var(--blue);}
+.sim-badge{background:rgba(220,38,38,.08);border:1.5px solid rgba(220,38,38,.22);color:var(--red);font-size:10px;font-weight:700;border-radius:4px;padding:2px 8px;letter-spacing:.4px;animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.5;}}
+.tb-sep{width:1px;height:24px;background:var(--border);margin:0 9px;}
+.tb-stat{display:flex;flex-direction:column;align-items:center;min-width:54px;}
+.tb-stat-val{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.tb-stat-lbl{font-size:9px;color:var(--muted);margin-top:1px;letter-spacing:.3px;text-transform:uppercase;}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.sim-btn{padding:6px 12px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .14s;}
+.sim-btn.start{background:var(--green);color:#fff;}
+.sim-btn.start:hover{background:#15803d;}
+.sim-btn.stop{background:var(--red);color:#fff;}
+.sim-btn.stop:hover{background:#b91c1c;}
+.sim-btn.reset{background:var(--bg3);color:var(--sub);border:1.5px solid var(--border);}
+.sim-btn.reset:hover{color:var(--text);}
+.sim-speed{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.sim-speed select{background:var(--bg3);border:1.5px solid var(--border);color:var(--text);font-size:10px;border-radius:4px;padding:3px 6px;cursor:pointer;}
+.layout{display:flex;height:calc(100vh - 50px);}
+.left-panel{width:255px;flex-shrink:0;background:var(--bg2);border-right:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-section{border-bottom:1px solid var(--border2);padding:9px 11px;}
+.ps-title{font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.ps-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+/* Volunteer cards */
+.vol-card{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;margin-bottom:4px;background:var(--bg3);border:1.5px solid var(--border2);transition:all .2s;}
+.vol-card.deploying{border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.04);}
+.vol-card.arrived{border-color:rgba(29,78,216,.28);background:rgba(29,78,216,.04);}
+.vol-card.returning{border-color:rgba(180,83,9,.25);background:rgba(180,83,9,.03);opacity:.85;}
+.vol-card.resting{opacity:.55;}
+/* Red cross badge in card */
+.rc-badge{width:26px;height:26px;border-radius:50%;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.rc-badge::before{content:'';position:absolute;width:2.5px;height:13px;border-radius:1px;}
+.rc-badge::after{content:'';position:absolute;width:13px;height:2.5px;border-radius:1px;}
+/* Colors for rc-badge states */
+.rc-badge.standby{background:#fff;border:2px solid #dc2626;}
+.rc-badge.standby::before,.rc-badge.standby::after{background:#dc2626;}
+.rc-badge.deploying{background:#16a34a;border:2px solid #fff;}
+.rc-badge.deploying::before,.rc-badge.deploying::after{background:#fff;}
+.rc-badge.arrived{background:#1d4ed8;border:2px solid #fff;}
+.rc-badge.arrived::before,.rc-badge.arrived::after{background:#fff;}
+.rc-badge.returning,.rc-badge.resting{background:#b45309;border:2px solid #fff;}
+.rc-badge.returning::before,.rc-badge.returning::after,
+.rc-badge.resting::before,.rc-badge.resting::after{background:#fff;}
+.vol-info{flex:1;min-width:0;}
+.vol-name{font-size:10.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vol-status{font-size:9px;margin-top:1px;font-weight:500;}
+.vol-status.deploying{color:var(--green);}
+.vol-status.standby{color:var(--muted);}
+.vol-status.arrived{color:var(--blue);}
+.vol-status.returning{color:var(--amber);}
+.vol-status.resting{color:var(--muted);}
+.vol-base-lbl{font-size:8px;font-family:'DM Mono',monospace;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px;}
+/* Division section header in list */
+.div-header{font-size:8px;font-weight:700;letter-spacing:.55px;text-transform:uppercase;padding:5px 8px 2px;margin-top:3px;border-top:1px solid var(--border2);}
+.div-header:first-child{border-top:none;margin-top:0;padding-top:0;}
+/* Event cards */
+.event-card{padding:7px 8px;border-radius:6px;margin-bottom:4px;background:var(--bg3);border:1.5px solid var(--border2);border-left:3px solid;}
+.event-card.red{border-left-color:var(--red);}
+.event-card.amber{border-left-color:var(--amber);}
+.event-card.blue{border-left-color:var(--blue);}
+.ev-type{font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;}
+.ev-type.red{color:var(--red);}
+.ev-type.amber{color:var(--amber);}
+.ev-type.blue{color:var(--blue);}
+.ev-name{font-size:11px;font-weight:600;color:var(--text);margin-top:1px;}
+.ev-meta{font-size:9px;color:var(--muted);margin-top:2px;display:flex;gap:8px;}
+.ev-vols{font-size:9px;margin-top:2px;font-weight:500;}
+.ev-vols.ok{color:var(--green);}
+.ev-vols.warn{color:var(--amber);}
+/* MAP */
+.map-wrap{flex:1;position:relative;}
+#sim-map{width:100%;height:100%;}
+.map-overlay-top{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;display:flex;gap:8px;}
+.sim-time-badge{background:rgba(255,255,255,.94);border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'DM Mono',monospace;font-size:12px;color:var(--blue);font-weight:700;backdrop-filter:blur(8px);box-shadow:var(--shadow);}
+.sim-mode-badge{background:rgba(220,38,38,.07);border:1.5px solid rgba(220,38,38,.22);border-radius:6px;padding:5px 10px;font-size:10px;font-weight:700;color:var(--red);backdrop-filter:blur(8px);box-shadow:var(--shadow);}
+/* RIGHT PANEL */
+.right-panel{width:236px;flex-shrink:0;background:var(--bg2);border-left:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.warn-item{padding:8px 10px;border-bottom:1px solid var(--border2);animation:slidein .25s ease;}
+@keyframes slidein{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:none;}}
+.wi-header{display:flex;align-items:center;gap:5px;margin-bottom:2px;}
+.wi-level{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;}
+.wi-level.critical{background:rgba(220,38,38,.1);color:var(--red);}
+.wi-level.high{background:rgba(180,83,9,.1);color:var(--amber);}
+.wi-level.medium{background:rgba(29,78,216,.08);color:var(--blue);}
+.wi-level.overflow{background:rgba(109,40,217,.1);color:var(--purple);}
+.wi-time{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-left:auto;}
+.wi-text{font-size:11px;color:var(--text);line-height:1.4;}
+.wi-sub{font-size:9px;color:var(--muted);margin-top:1px;}
+.log-item{padding:4px 10px;border-bottom:1px solid var(--border2);font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;display:flex;gap:5px;line-height:1.4;}
+.log-item .lt{color:var(--cyan);flex-shrink:0;}
+.log-item .lm{color:var(--sub);}
+.log-item .lm.red{color:var(--red);}
+.log-item .lm.green{color:var(--green);}
+.log-item .lm.amber{color:var(--amber);}
+.log-item .lm.purple{color:var(--purple);}
+.feed-scroll{overflow-y:auto;}
+.feed-scroll::-webkit-scrollbar{width:3px;}
+.feed-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.warning-flash{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9999;animation:flashout .55s ease-out forwards;}
+@keyframes flashout{0%{background:rgba(220,38,38,.13);}100%{background:transparent;}}
+.overflow-flash{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9999;animation:flashpurp .7s ease-out forwards;}
+@keyframes flashpurp{0%{background:rgba(109,40,217,.11);}100%{background:transparent;}}
+/* Leaflet white theme */
+.leaflet-tile-pane{filter:brightness(1.01) saturate(.87);}
+.leaflet-container{background:#eef0f5;}
+.leaflet-control-zoom a{background:var(--bg2)!important;color:var(--text)!important;border:1.5px solid var(--border)!important;box-shadow:var(--shadow)!important;}
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;color:var(--text)!important;border:1.5px solid var(--border)!important;border-radius:9px!important;box-shadow:var(--shadow-lg)!important;}
+.leaflet-popup-tip{background:var(--bg2)!important;}
+.leaflet-control-attribution{background:rgba(255,255,255,.85)!important;color:var(--muted)!important;font-size:8px!important;border-radius:4px!important;}
+/* Map markers */
+.vol-pin{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.16);position:relative;}
+.cross-v{position:absolute;width:2.5px;height:14px;border-radius:1px;}
+.cross-h{position:absolute;width:14px;height:2.5px;border-radius:1px;}
+/* standby: white circle, red cross */
+.vpin-standby{background:#fff;border:2.5px solid #dc2626;}
+.vpin-standby .cross-v,.vpin-standby .cross-h{background:#dc2626;}
+/* deploying: green circle, white cross */
+.vpin-deploying{background:#16a34a;border:2.5px solid #fff;}
+.vpin-deploying .cross-v,.vpin-deploying .cross-h{background:#fff;}
+/* arrived: blue circle, white cross */
+.vpin-arrived{background:#1d4ed8;border:2.5px solid #fff;}
+.vpin-arrived .cross-v,.vpin-arrived .cross-h{background:#fff;}
+/* returning/resting: amber, white cross */
+.vpin-returning,.vpin-resting{background:#b45309;border:2.5px solid #fff;}
+.vpin-returning .cross-v,.vpin-returning .cross-h,
+.vpin-resting .cross-v,.vpin-resting .cross-h{background:#fff;}
+/* Disaster marker */
+.dis-marker{position:relative;width:36px;height:36px;}
+.dis-ring{position:absolute;inset:-10px;border-radius:50%;border:2px solid;opacity:.32;animation:rpulse 2s ease-out infinite;}
+@keyframes rpulse{0%{transform:scale(.6);opacity:.5;}100%{transform:scale(1.8);opacity:0;}}
+.dis-core{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid;box-shadow:var(--shadow-lg);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="tb-flag"><div class="tf-g"><div class="tf-r"></div></div></div>
+    <div class="tb-title">Rescue<em>AI</em></div>
+  </div>
+  <div class="sim-badge">⬤ SIMULATION</div>
+  <div style="margin-left:6px;background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:600;border-radius:4px;padding:2px 10px;letter-spacing:.2px;white-space:nowrap">⚠️ Training exercise only — all data is fictional, not real events</div>
+  <div class="tb-sep"></div>
+  <div class="tb-stat"><div class="tb-stat-val" id="st-time" style="color:var(--blue)">00:00</div><div class="tb-stat-lbl">Sim Time</div></div>
+  <div class="tb-sep"></div>
+  <div class="tb-stat"><div class="tb-stat-val" id="st-events" style="color:var(--red)">0</div><div class="tb-stat-lbl">Events</div></div>
+  <div class="tb-sep"></div>
+  <div class="tb-stat"><div class="tb-stat-val" id="st-vols" style="color:var(--green)">0</div><div class="tb-stat-lbl">Deployed</div></div>
+  <div class="tb-sep"></div>
+  <div class="tb-stat"><div class="tb-stat-val" id="st-warn" style="color:var(--amber)">0</div><div class="tb-stat-lbl">Warnings</div></div>
+  <div class="tb-sep"></div>
+  <div class="tb-stat"><div class="tb-stat-val" id="st-affected" style="color:var(--purple)">0</div><div class="tb-stat-lbl">Affected K</div></div>
+  <div class="tb-right">
+    <div class="sim-speed">Speed:
+      <select id="speed-select" onchange="setSpeed(this.value)">
+        <option value="1">1x</option><option value="2" selected>2x</option><option value="4">4x</option>
+      </select>
+    </div>
+    <button class="sim-btn start" id="btn-start" onclick="startSim()">▶ Start</button>
+    <button class="sim-btn stop" id="btn-stop" onclick="stopSim()" style="display:none">⏹ Stop</button>
+    <button class="sim-btn reset" onclick="resetSim()">↺ Reset</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="left-panel">
+    <div class="panel-section">
+      <div class="ps-title"><div class="ps-dot" style="background:#dc2626"></div>Volunteers by Division</div>
+      <div class="feed-scroll" id="vol-list" style="max-height:340px"></div>
+    </div>
+    <div class="panel-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div class="ps-title"><div class="ps-dot" style="background:var(--red)"></div>Active Disasters</div>
+      <div class="feed-scroll" id="event-list" style="flex:1"></div>
+    </div>
+  </div>
+
+  <div class="map-wrap">
+    <div class="map-overlay-top">
+      <div class="sim-time-badge" id="sim-clock">SIM · PAUSED</div>
+      <div class="sim-mode-badge">SIMULATION — NOT REAL DATA</div>
+    </div>
+    <div id="sim-map"></div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-section"><div class="ps-title"><div class="ps-dot" style="background:var(--red)"></div>Warning Feed</div></div>
+    <div class="feed-scroll" id="warn-feed" style="height:42%;border-bottom:1px solid var(--border2)"></div>
+    <div class="panel-section" style="padding-top:8px"><div class="ps-title"><div class="ps-dot" style="background:var(--cyan)"></div>System Log</div></div>
+    <div class="feed-scroll" id="log-feed" style="flex:1;height:58%"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/*
+  DISPATCH RULES
+  ══════════════════════════════════════════════════════
+  1. Disasters belong to a DIVISION.
+  2. Only volunteers from THE SAME division respond.
+     - Sorted by distance (closest first).
+     - No cross-division movement under normal conditions.
+  3. Dhaka has 8 volunteers (largest pool) as HQ reserve.
+  4. SYLHET OVERFLOW: After Sylhet's volunteers have been
+     depleted across 3+ events, Dhaka sends reserves to Sylhet.
+     This is flagged as an inter-division emergency mobilisation.
+  5. River / sea avoidance via land waypoints.
+  6. Volunteers return home, rest, then go standby again.
+  ══════════════════════════════════════════════════════
+*/
+
+var DIVS = {
+  dhaka:     {name:'Dhaka',      col:'#1d4ed8'},
+  sylhet:    {name:'Sylhet',     col:'#7c3aed'},
+  chittagong:{name:'Chittagong', col:'#dc2626'},
+  rajshahi:  {name:'Rajshahi',   col:'#b45309'},
+  khulna:    {name:'Khulna',     col:'#0284c7'},
+  barisal:   {name:'Barisal',    col:'#0891b2'},
+  rangpur:   {name:'Rangpur',    col:'#16a34a'},
+  mymensingh:{name:'Mymensingh', col:'#d97706'},
+};
+
+var DISTRICTS = [
+  // Dhaka
+  {n:'Dhaka',       lat:23.810,lng:90.410, pop:12043, div:'dhaka'},
+  {n:'Tangail',     lat:24.250,lng:89.920, pop:3925,  div:'dhaka'},
+  {n:'Manikganj',   lat:23.860,lng:89.990, pop:1436,  div:'dhaka'},
+  {n:'Munshiganj',  lat:23.550,lng:90.530, pop:1524,  div:'dhaka'},
+  {n:'Narsingdi',   lat:23.930,lng:90.720, pop:2226,  div:'dhaka'},
+  {n:'Faridpur',    lat:23.610,lng:89.840, pop:1974,  div:'dhaka'},
+  // Sylhet
+  {n:'Sylhet',      lat:24.895,lng:91.870, pop:3482,  div:'sylhet'},
+  {n:'Sunamganj',   lat:25.075,lng:91.400, pop:2502,  div:'sylhet'},
+  {n:'Moulvibazar', lat:24.483,lng:91.778, pop:1919,  div:'sylhet'},
+  {n:'Habiganj',    lat:24.374,lng:91.420, pop:2089,  div:'sylhet'},
+  // Chittagong
+  {n:'Chattogram',  lat:22.370,lng:91.800, pop:8885,  div:'chittagong'},
+  {n:'Noakhali',    lat:22.870,lng:91.100, pop:3532,  div:'chittagong'},
+  {n:'Comilla',     lat:23.460,lng:91.180, pop:5599,  div:'chittagong'},
+  {n:'Feni',        lat:23.000,lng:91.400, pop:1437,  div:'chittagong'},
+  // Rajshahi
+  {n:'Rajshahi',    lat:24.370,lng:88.600, pop:2892,  div:'rajshahi'},
+  {n:'Bogura',      lat:24.850,lng:89.370, pop:3622,  div:'rajshahi'},
+  {n:'Sirajganj',   lat:24.450,lng:89.700, pop:3476,  div:'rajshahi'},
+  {n:'Pabna',       lat:24.000,lng:89.230, pop:2664,  div:'rajshahi'},
+  // Khulna
+  {n:'Khulna',      lat:22.800,lng:89.550, pop:2537,  div:'khulna'},
+  {n:'Jessore',     lat:23.170,lng:89.210, pop:2764,  div:'khulna'},
+  {n:'Satkhira',    lat:22.720,lng:89.070, pop:1982,  div:'khulna'},
+  // Barisal
+  {n:'Barisal',     lat:22.700,lng:90.370, pop:2641,  div:'barisal'},
+  {n:'Bhola',       lat:22.690,lng:90.650, pop:2008,  div:'barisal'},
+  {n:'Patuakhali',  lat:22.350,lng:90.330, pop:1780,  div:'barisal'},
+  {n:'Barguna',     lat:22.100,lng:90.120, pop:973,   div:'barisal'},
+  // Rangpur
+  {n:'Rangpur',     lat:25.740,lng:89.250, pop:2923,  div:'rangpur'},
+  {n:'Kurigram',    lat:25.810,lng:89.630, pop:2326,  div:'rangpur'},
+  {n:'Gaibandha',   lat:25.330,lng:89.540, pop:2538,  div:'rangpur'},
+  {n:'Lalmonirhat', lat:25.920,lng:89.450, pop:1282,  div:'rangpur'},
+  // Mymensingh
+  {n:'Mymensingh',  lat:24.750,lng:90.400, pop:5764,  div:'mymensingh'},
+  {n:'Netrokona',   lat:24.880,lng:90.870, pop:2229,  div:'mymensingh'},
+  {n:'Jamalpur',    lat:24.900,lng:89.940, pop:2392,  div:'mymensingh'},
+  {n:'Kishoreganj', lat:24.440,lng:90.780, pop:3199,  div:'mymensingh'},
+];
+
+var DTYPES = [
+  {icon:'🌊', label:'Flash Flood',      sev:'critical', col:'#1d4ed8', needs:3},
+  {icon:'🌀', label:'Cyclone Warning',  sev:'critical', col:'#7c3aed', needs:4},
+  {icon:'🌊', label:'River Flooding',   sev:'high',     col:'#0284c7', needs:2},
+  {icon:'⛰', label:'Landslide',         sev:'high',     col:'#b45309', needs:2},
+  {icon:'⛈', label:'Severe Storm',      sev:'medium',   col:'#64748b', needs:1},
+  {icon:'🏚', label:'Riverbank Erosion', sev:'high',     col:'#16a34a', needs:2},
+  {icon:'🔥', label:'Urban Fire',        sev:'medium',   col:'#dc2626', needs:2},
+  {icon:'🌊', label:'Coastal Surge',     sev:'critical', col:'#0891b2', needs:3},
+];
+
+/* ── VOLUNTEERS ── */
+// Dhaka gets 8 (HQ reserve). Other divisions get 2-3.
+var VOL_DATA = [
+  // DHAKA — 8 volunteers clustered near Dhaka city
+  {id:'D01',name:'Karim Ahmed',    div:'dhaka', base:'Dhaka HQ',    lat:23.815,lng:90.408},
+  {id:'D02',name:'Nusrat Jahan',   div:'dhaka', base:'Dhaka HQ',    lat:23.803,lng:90.418},
+  {id:'D03',name:'Hasan Mahmud',   div:'dhaka', base:'Dhaka HQ',    lat:23.822,lng:90.397},
+  {id:'D04',name:'Farida Khanam',  div:'dhaka', base:'Dhaka HQ',    lat:23.808,lng:90.425},
+  {id:'D05',name:'Rafiq Islam',    div:'dhaka', base:'Dhaka North', lat:23.875,lng:90.412},
+  {id:'D06',name:'Shirin Akter',   div:'dhaka', base:'Dhaka South', lat:23.742,lng:90.388},
+  {id:'D07',name:'Jamil Uddin',    div:'dhaka', base:'Tangail',     lat:24.248,lng:89.922},
+  {id:'D08',name:'Amena Begum',    div:'dhaka', base:'Narsingdi',   lat:23.928,lng:90.718},
+  // SYLHET — 3
+  {id:'S01',name:'Tariq Hassan',   div:'sylhet', base:'Sylhet City', lat:24.892,lng:91.868},
+  {id:'S02',name:'Rina Begum',     div:'sylhet', base:'Sunamganj',   lat:25.072,lng:91.402},
+  {id:'S03',name:'Mita Chowdhury', div:'sylhet', base:'Habiganj',    lat:24.376,lng:91.422},
+  // CHITTAGONG — 3
+  {id:'C01',name:'Reza Chowdhury', div:'chittagong', base:'Ctg City',  lat:22.372,lng:91.802},
+  {id:'C02',name:'Sajeda Khatun',  div:'chittagong', base:'Noakhali',  lat:22.868,lng:91.102},
+  {id:'C03',name:'Babul Hossain',  div:'chittagong', base:'Comilla',   lat:23.462,lng:91.182},
+  // RAJSHAHI — 2
+  {id:'R01',name:'Nasrin Akter',   div:'rajshahi', base:'Bogura',    lat:24.852,lng:89.372},
+  {id:'R02',name:'Zahir Uddin',    div:'rajshahi', base:'Rajshahi',  lat:24.372,lng:88.602},
+  // KHULNA — 2
+  {id:'K01',name:'Habib Rahman',   div:'khulna', base:'Khulna',     lat:22.802,lng:89.552},
+  {id:'K02',name:'Popy Rani',      div:'khulna', base:'Jessore',    lat:23.172,lng:89.212},
+  // RANGPUR — 2
+  {id:'P01',name:'Monir Hossain',  div:'rangpur', base:'Rangpur',   lat:25.742,lng:89.252},
+  {id:'P02',name:'Arifa Sultana',  div:'rangpur', base:'Gaibandha', lat:25.332,lng:89.542},
+  // MYMENSINGH — 2
+  {id:'M01',name:'Arif Hossain',   div:'mymensingh', base:'Mymensingh', lat:24.752,lng:90.402},
+  {id:'M02',name:'Sadia Islam',    div:'mymensingh', base:'Netrokona',  lat:24.882,lng:90.872},
+  // BARISAL — 2
+  {id:'B01',name:'Rekha Das',      div:'barisal', base:'Barisal',   lat:22.702,lng:90.372},
+  {id:'B02',name:'Iqbal Sarkar',   div:'barisal', base:'Bhola',     lat:22.692,lng:90.652},
+];
+
+/* ── WATER BARRIERS ── */
+var WATER = [
+  // Padma River — between Dhaka south and Barisal/Faridpur
+  {mnLa:23.10,mnLo:89.50,mxLa:23.52,mxLo:90.25, wLa:23.58,wLo:89.80, n:'Padma'},
+  // Jamuna/Brahmaputra — between Rajshahi/Rangpur and Dhaka/Mymensingh
+  {mnLa:23.95,mnLo:89.52,mxLa:25.15,mxLo:89.88, wLa:24.20,wLo:89.92, n:'Jamuna'},
+  // Lower Meghna / delta east
+  {mnLa:22.50,mnLo:90.48,mxLa:23.22,mxLo:90.92, wLa:23.28,wLo:90.62, n:'Meghna'},
+  // Bay of Bengal / open sea
+  {mnLa:20.80,mnLo:88.50,mxLa:21.98,mxLo:92.70, wLa:22.05,wLo:90.22, n:'Bay'},
+  // Sundarbans maze
+  {mnLa:21.52,mnLo:88.68,mxLa:22.45,mxLo:89.38, wLa:22.52,wLo:89.42, n:'Sundarbans'},
+];
+
+function crossesWater(aLa,aLo,bLa,bLo){
+  var mLa=(aLa+bLa)/2, mLo=(aLo+bLo)/2;
+  for(var i=0;i<WATER.length;i++){
+    var w=WATER[i];
+    if(mLa>=w.mnLa&&mLa<=w.mxLa&&mLo>=w.mnLo&&mLo<=w.mxLo){
+      var aIn=(aLa>=w.mnLa&&aLa<=w.mxLa&&aLo>=w.mnLo&&aLo<=w.mxLo);
+      var bIn=(bLa>=w.mnLa&&bLa<=w.mxLa&&bLo>=w.mnLo&&bLo<=w.mxLo);
+      if(!aIn&&!bIn) return w;
+    }
+  }
+  return null;
+}
+
+function buildPath(aLa,aLo,bLa,bLo){
+  var pts=[{la:aLa,lo:aLo}];
+  var w=crossesWater(aLa,aLo,bLa,bLo);
+  if(w){
+    var wp={la:w.wLa,lo:w.wLo};
+    var w2=crossesWater(aLa,aLo,wp.la,wp.lo);
+    if(!w2) pts.push(wp);
+    else pts.push({la:w.mxLa+0.12, lo:(aLo+bLo)/2});
+  }
+  pts.push({la:bLa,lo:bLo});
+  return pts;
+}
+
+function geo(aLa,aLo,bLa,bLo){
+  var d=bLa-aLa,e=bLo-aLo; return Math.sqrt(d*d+e*e);
+}
+
+/* ── STATE ── */
+var map,running=false,spd=2;
+var tick=0,warnCnt=0,totalAff=0,disCount=0;
+var disasters=[],dMarkers={};
+var vols=[],vMarkers={},rLines={};
+var tI=null,sI=null;
+var sylhetHits=0, sylhetOverflow=false;
+
+/* ── MAP INIT ── */
+function initMap(){
+  map=L.map('sim-map',{center:[23.7,90.35],zoom:7,minZoom:6,maxZoom:13,maxBounds:[[19.5,85.5],[27.5,95.5]]});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+}
+
+/* ── VOLUNTEER INIT ── */
+function initVols(){
+  vols=VOL_DATA.map(function(v){
+    return {
+      id:v.id,name:v.name,div:v.div,base:v.base,
+      lat:v.lat,lng:v.lng,oLat:v.lat,oLng:v.lng,
+      status:'standby',disId:null,
+      path:[],pi:0,rest:0,
+      spd:0.0042+Math.random()*0.003,
+    };
+  });
+  vols.forEach(putVolPin);
+  renderVols();
+}
+
+function volPinHtml(v){
+  var cls='vol-pin vpin-'+(v.rest>0?'resting':v.status);
+  return '<div class="'+cls+'"><div class="cross-v"></div><div class="cross-h"></div></div>';
+}
+
+function putVolPin(v){
+  if(vMarkers[v.id]) map.removeLayer(vMarkers[v.id]);
+  var icon=L.divIcon({className:'',html:volPinHtml(v),iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-17]});
+  var m=L.marker([v.lat,v.lng],{icon:icon,zIndexOffset:1000}).addTo(map);
+  m.bindPopup(function(){
+    var tgt=v.disId?disasters.find(function(d){return d.id===v.disId;}):null;
+    var stl=v.rest>0?'Resting':(v.status==='standby'?'Stand-by':v.status==='deploying'?'Deploying':v.status==='arrived'?'On-site':'Returning');
+    return '<div style="font-family:DM Sans,sans-serif;color:#18243a;min-width:150px;padding:2px">'+
+      '<b style="font-size:12px">'+v.name+'</b><br>'+
+      '<span style="font-size:10px;color:#8595b0">'+v.base+' · '+DIVS[v.div].name+'</span><br>'+
+      '<span style="font-size:10px;color:'+sCol(v)+'">'+stl+(tgt?' → '+tgt.dist:'')+'</span>'+
+      '</div>';
+  });
+  vMarkers[v.id]=m;
+}
+
+function refreshPin(v){
+  if(!vMarkers[v.id]) return;
+  vMarkers[v.id].setIcon(L.divIcon({className:'',html:volPinHtml(v),iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-17]}));
+}
+
+function sCol(v){
+  if(v.status==='deploying') return '#16a34a';
+  if(v.status==='arrived')   return '#1d4ed8';
+  if(v.status==='returning'||v.rest>0) return '#b45309';
+  return '#8595b0';
+}
+
+/* ── ROUTES ── */
+function drawRoute(v,isOverflow){
+  clearRoute(v);
+  if(!v.path||v.path.length<2) return;
+  var col=isOverflow?'#7c3aed':'#16a34a';
+  var line=L.polyline(v.path.map(function(p){return[p.la,p.lo];}),
+    {color:col,weight:1.5,opacity:.45,dashArray:'5,4'}).addTo(map);
+  rLines[v.id]=line;
+}
+function clearRoute(v){
+  if(rLines[v.id]){map.removeLayer(rLines[v.id]);delete rLines[v.id];}
+}
+
+/* ── DISASTER SPAWN ── */
+function spawn(){
+  if(disasters.length>=6) return;
+  var d=DISTRICTS[Math.floor(Math.random()*DISTRICTS.length)];
+  var t=DTYPES[Math.floor(Math.random()*DTYPES.length)];
+  var j=function(){return (Math.random()-.5)*.2;};
+  var dis={
+    id:'E'+(++disCount),
+    lat:d.lat+j(),lng:d.lng+j(),
+    dist:d.n, div:d.div,
+    icon:t.icon, label:t.label, sev:t.sev, col:t.col,
+    needs:t.needs, assigned:[],
+    aff:Math.round(d.pop*(0.02+Math.random()*.09)),
+    age:0, maxAge:60+Math.floor(Math.random()*55),
+  };
+  disasters.push(dis);
+  drawDis(dis);
+  addEventCard(dis);
+  triggerWarn(dis);
+  totalAff+=dis.aff;
+  addLog('New '+t.label+' in '+d.n+' ('+DIVS[d.div].name+')',t.sev==='critical'?'red':t.sev==='high'?'amber':'');
+  if(d.div==='sylhet') sylhetHits++;
+  doDispatch(dis);
+}
+
+function drawDis(dis){
+  var c=dis.col;
+  var html='<div class="dis-marker"><div class="dis-ring" style="border-color:'+c+'"></div>'+
+    '<div class="dis-core" style="background:'+c+'20;border-color:'+c+'55;color:'+c+'">'+dis.icon+'</div></div>';
+  var icon=L.divIcon({className:'',html:html,iconSize:[36,36],iconAnchor:[18,18],popupAnchor:[0,-20]});
+  var m=L.marker([dis.lat,dis.lng],{icon:icon,zIndexOffset:500}).addTo(map);
+  m.bindPopup('<div style="font-family:DM Sans,sans-serif;color:#18243a;min-width:180px;padding:2px">'+
+    '<div style="font-size:12px;font-weight:700;margin-bottom:3px">'+dis.icon+' '+dis.label+'</div>'+
+    '<div style="font-size:10px;color:#5b6e8a">'+dis.dist+' · <b>'+DIVS[dis.div].name+' Div.</b></div>'+
+    '<div style="font-size:10px;color:'+c+';text-transform:uppercase;margin:3px 0">'+dis.sev+'</div>'+
+    '<div style="font-size:10px;color:#8595b0">'+dis.aff.toLocaleString()+' at risk · needs '+dis.needs+'</div>'+
+    '</div>');
+  dMarkers[dis.id]=m;
+}
+
+function removeDis(dis){
+  if(dMarkers[dis.id]){map.removeLayer(dMarkers[dis.id]);delete dMarkers[dis.id];}
+  disasters=disasters.filter(function(d){return d.id!==dis.id;});
+  var el=document.getElementById('ev-'+dis.id); if(el) el.remove();
+  vols.forEach(function(v){if(v.disId===dis.id) goHome(v);});
+  addLog('Resolved: '+dis.dist,'green');
+}
+
+/* ── CORE DISPATCH ── */
+function doDispatch(dis){
+  // Only same-division volunteers, sorted closest first
+  var sameDiv = vols.filter(function(v){
+    return v.div===dis.div && v.status==='standby' && v.rest===0;
+  }).sort(function(a,b){
+    return geo(a.lat,a.lng,dis.lat,dis.lng)-geo(b.lat,b.lng,dis.lat,dis.lng);
+  });
+
+  var toSend = sameDiv.slice(0, dis.needs);
+  toSend.forEach(function(v){ assignVol(v, dis, false); });
+
+  var gap = dis.needs - toSend.length;
+
+  if(gap > 0){
+    var totalSame = vols.filter(function(v){return v.div===dis.div;}).length;
+    addLog('⚠ '+DIVS[dis.div].name+' has only '+toSend.length+'/'+dis.needs+' available','amber');
+
+    // Sylhet overflow: after 3+ Sylhet events, Dhaka steps in
+    if(dis.div==='sylhet' && sylhetHits >= 3){
+      var dhakaPool = vols.filter(function(v){
+        return v.div==='dhaka' && v.status==='standby' && v.rest===0;
+      }).sort(function(a,b){
+        return geo(a.lat,a.lng,dis.lat,dis.lng)-geo(b.lat,b.lng,dis.lat,dis.lng);
+      });
+      var overflow = dhakaPool.slice(0, gap);
+      if(overflow.length > 0){
+        overflow.forEach(function(v){ assignVol(v, dis, true); });
+        postOverflowAlert(dis, overflow.length);
+        if(!sylhetOverflow){
+          sylhetOverflow=true;
+          addLog('🚨 DHAKA RESERVES mobilised for Sylhet ('+sylhetHits+' events hit)','purple');
+        }
+      }
+    }
+  }
+
+  updateECard(dis);
+  renderVols();
+}
+
+function assignVol(v, dis, isOverflow){
+  v.status='deploying';
+  v.disId=dis.id;
+  dis.assigned.push(v.id);
+  v.path=buildPath(v.lat,v.lng,dis.lat,dis.lng);
+  v.pi=0;
+  drawRoute(v, isOverflow);
+  refreshPin(v);
+  var km=(geo(v.lat,v.lng,dis.lat,dis.lng)*111).toFixed(0);
+  addLog(v.name+(isOverflow?' [Dhaka→Sylhet]':'')+' dispatched → '+dis.dist+' ('+km+' km)',
+    isOverflow?'purple':'green');
+}
+
+function goHome(v){
+  v.status='returning'; v.disId=null;
+  clearRoute(v);
+  v.path=buildPath(v.lat,v.lng,v.oLat,v.oLng);
+  v.pi=0;
+  refreshPin(v);
+  addLog(v.name+' returning to '+v.base,'');
+}
+
+/* ── MOVEMENT ── */
+function moveTick(){
+  vols.forEach(function(v){
+    if(v.rest>0){
+      v.rest--;
+      if(v.rest===0){
+        v.status='standby';
+        refreshPin(v);
+        addLog(v.name+' back on duty','green');
+        renderVols();
+      }
+      return;
+    }
+    if((v.status==='deploying'||v.status==='returning') && v.path && v.path.length>0){
+      stepPath(v,function(){
+        if(v.status==='deploying'){
+          v.status='arrived'; clearRoute(v); refreshPin(v);
+          var d=disasters.find(function(x){return x.id===v.disId;});
+          addLog(v.name+' on-site'+(d?' at '+d.dist:''),'green');
+          renderVols();
+        } else {
+          // Home
+          v.path=[]; v.lat=v.oLat; v.lng=v.oLng;
+          if(vMarkers[v.id]) vMarkers[v.id].setLatLng([v.lat,v.lng]);
+          v.rest=5+Math.floor(Math.random()*7);
+          refreshPin(v); renderVols();
+        }
+      });
+    }
+  });
+  disasters.slice().forEach(function(dis){
+    dis.age++;
+    if(dis.age>=dis.maxAge) removeDis(dis);
+  });
+  updateStats();
+}
+
+function stepPath(v,done){
+  if(!v.path||v.pi>=v.path.length-1){done();return;}
+  var tgt=v.path[v.pi+1];
+  var dlat=tgt.la-v.lat, dlng=tgt.lo-v.lng;
+  var d=Math.sqrt(dlat*dlat+dlng*dlng);
+  var step=v.spd*spd;
+  if(d<step*1.1){
+    v.lat=tgt.la; v.lng=tgt.lo; v.pi++;
+    if(v.pi>=v.path.length-1) done();
+  } else {
+    v.lat+=dlat/d*step; v.lng+=dlng/d*step;
+  }
+  if(vMarkers[v.id]) vMarkers[v.id].setLatLng([v.lat,v.lng]);
+}
+
+/* ── WARNINGS ── */
+function triggerWarn(dis){
+  warnCnt++;
+  var el=document.createElement('div'); el.className='warn-item';
+  el.innerHTML='<div class="wi-header">'+
+    '<span class="wi-level '+dis.sev+'">'+dis.sev.toUpperCase()+'</span>'+
+    '<span class="wi-time">'+ts()+'</span></div>'+
+    '<div class="wi-text">'+dis.label+' — <b>'+dis.dist+'</b></div>'+
+    '<div class="wi-sub">'+DIVS[dis.div].name+' Div. · '+dis.aff.toLocaleString()+' at risk</div>';
+  document.getElementById('warn-feed').insertBefore(el,document.getElementById('warn-feed').firstChild);
+  if(dis.sev==='critical'){
+    var fl=document.createElement('div');fl.className='warning-flash';
+    document.body.appendChild(fl);setTimeout(function(){fl.remove();},600);
+  }
+}
+
+function postOverflowAlert(dis,n){
+  var el=document.createElement('div'); el.className='warn-item';
+  el.innerHTML='<div class="wi-header">'+
+    '<span class="wi-level overflow">INTER-DIV MOBILISATION</span>'+
+    '<span class="wi-time">'+ts()+'</span></div>'+
+    '<div class="wi-text"><b>Dhaka HQ</b> sending '+n+' reserve(s) → '+dis.dist+'</div>'+
+    '<div class="wi-sub">Sylhet volunteers exhausted after '+sylhetHits+' events</div>';
+  document.getElementById('warn-feed').insertBefore(el,document.getElementById('warn-feed').firstChild);
+  var fl=document.createElement('div');fl.className='overflow-flash';
+  document.body.appendChild(fl);setTimeout(function(){fl.remove();},750);
+}
+
+/* ── UI HELPERS ── */
+function addEventCard(dis){
+  var sc=dis.sev==='critical'?'red':dis.sev==='high'?'amber':'blue';
+  var el=document.createElement('div');
+  el.className='event-card '+sc; el.id='ev-'+dis.id;
+  el.innerHTML='<div class="ev-type '+sc+'">'+dis.label+'</div>'+
+    '<div class="ev-name">'+dis.icon+' '+dis.dist+'</div>'+
+    '<div class="ev-meta"><span>'+dis.aff.toLocaleString()+' affected</span><span>'+DIVS[dis.div].name+'</span></div>'+
+    '<div class="ev-vols warn" id="evv-'+dis.id+'">Dispatching…</div>';
+  document.getElementById('event-list').insertBefore(el,document.getElementById('event-list').firstChild);
+}
+
+function updateECard(dis){
+  var el=document.getElementById('evv-'+dis.id); if(!el) return;
+  var n=dis.assigned.length, ok=n>=dis.needs;
+  el.className='ev-vols '+(ok?'ok':'warn');
+  el.textContent=n+'/'+dis.needs+' dispatched'+(ok?'':' — short-staffed');
+}
+
+var DIV_ORDER=['dhaka','sylhet','chittagong','mymensingh','rajshahi','rangpur','khulna','barisal'];
+
+function renderVols(){
+  var byDiv={};
+  vols.forEach(function(v){if(!byDiv[v.div])byDiv[v.div]=[];byDiv[v.div].push(v);});
+  var html='';
+  DIV_ORDER.forEach(function(dk){
+    var dv=byDiv[dk]; if(!dv||!dv.length) return;
+    html+='<div class="div-header" style="color:'+DIVS[dk].col+'">'+DIVS[dk].name+'</div>';
+    dv.forEach(function(v){
+      var sc=v.rest>0?'resting':v.status;
+      var lbl=v.rest>0?'Resting':v.status==='standby'?'Stand-by':
+              v.status==='deploying'?'→ Deploying':v.status==='arrived'?'On-site':'← Returning';
+      var tgt=v.disId?disasters.find(function(d){return d.id===v.disId;}):null;
+      html+='<div class="vol-card '+sc+'">'+
+        '<div class="rc-badge '+sc+'"></div>'+
+        '<div class="vol-info">'+
+          '<div class="vol-name">'+v.name+'</div>'+
+          '<div class="vol-status '+sc+'">'+lbl+(tgt?' '+tgt.dist:'')+'</div>'+
+        '</div>'+
+        '<div class="vol-base-lbl">'+v.base+'</div>'+
+      '</div>';
+    });
+  });
+  document.getElementById('vol-list').innerHTML=html;
+}
+
+function addLog(msg,col){
+  var el=document.createElement('div'); el.className='log-item';
+  el.innerHTML='<span class="lt">'+ts()+'</span><span class="lm '+(col||'')+'">'+msg+'</span>';
+  var f=document.getElementById('log-feed');
+  f.insertBefore(el,f.firstChild);
+  if(f.children.length>80) f.removeChild(f.lastChild);
+}
+
+function updateStats(){
+  document.getElementById('st-events').textContent=disasters.length;
+  document.getElementById('st-vols').textContent=vols.filter(function(v){return v.status==='deploying'||v.status==='arrived';}).length;
+  document.getElementById('st-warn').textContent=warnCnt;
+  document.getElementById('st-affected').textContent=Math.round(totalAff/1000*10)/10;
+  document.getElementById('st-time').textContent=ts();
+  document.getElementById('sim-clock').textContent='SIM · '+ts();
+}
+
+function ts(){
+  var m=Math.floor(tick/60),s=tick%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+/* ── SIM CONTROLS ── */
+function startSim(){
+  if(running) return;
+  running=true;
+  document.getElementById('btn-start').style.display='none';
+  document.getElementById('btn-stop').style.display='inline-flex';
+  addLog('Simulation started','green');
+  addLog('Dispatch: same-division only. Dhaka mobilises if Sylhet overwhelmed.','');
+  spawn();
+  tI=setInterval(function(){tick++;moveTick();},1000/spd);
+  sI=setInterval(function(){spawn();},(9000+Math.random()*7000)/spd);
+}
+
+function stopSim(){
+  running=false;
+  clearInterval(tI);clearInterval(sI);
+  document.getElementById('btn-start').style.display='inline-flex';
+  document.getElementById('btn-stop').style.display='none';
+  document.getElementById('sim-clock').textContent='SIM · PAUSED';
+  addLog('Paused','amber');
+}
+
+function resetSim(){
+  stopSim();
+  tick=0;warnCnt=0;totalAff=0;disCount=0;sylhetHits=0;sylhetOverflow=false;
+  disasters.forEach(function(d){if(dMarkers[d.id]) map.removeLayer(dMarkers[d.id]);});
+  disasters=[];dMarkers={};
+  Object.keys(rLines).forEach(function(k){map.removeLayer(rLines[k]);});
+  rLines={};
+  ['event-list','warn-feed','log-feed'].forEach(function(id){document.getElementById(id).innerHTML='';});
+  vols.forEach(function(v){
+    v.status='standby';v.disId=null;v.path=[];v.pi=0;v.rest=0;
+    v.lat=v.oLat;v.lng=v.oLng;
+    if(vMarkers[v.id]){vMarkers[v.id].setLatLng([v.lat,v.lng]);refreshPin(v);}
+  });
+  renderVols();updateStats();
+  document.getElementById('st-time').textContent='00:00';
+  document.getElementById('sim-clock').textContent='SIM · PAUSED';
+  addLog('Reset — all volunteers at base','');
+}
+
+function setSpeed(val){
+  spd=parseInt(val);
+  if(running){stopSim();startSim();}
+}
+
+window.addEventListener('load',function(){
+  initMap();initVols();updateStats();
+  addLog('Ready — 24 volunteers across 8 divisions','');
+  addLog('Dhaka HQ: 8 reserves · Sylhet/Ctg: 3 · Others: 2','green');
+  addLog('Sylhet overwhelmed? Dhaka dispatches after 3rd event.','');
+});
+</script>
+</body>
+</html>
