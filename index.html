@@ -2017,30 +2017,64 @@ function closeBriefing() {
 }
 
 function generateBriefing() {
-  // Show loading
   document.getElementById('bp-loading').style.display = 'flex';
   document.getElementById('bp-content').style.display = 'none';
   document.getElementById('bp-footer').style.display  = 'none';
   document.getElementById('bp-sub').textContent = 'বিশ্লেষণ হচ্ছে…';
 
-  fetch('/api/briefing', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' })
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      if (!d.ok) throw new Error(d.error || 'তৈরি ব্যর্থ হয়েছে');
-      lastBriefing = d.briefing;
-      renderBriefing(d.briefing);
+  // Build prompt from live client-side data (bypasses server entirely)
+  var now = new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' });
+  var rptLines = reports.slice(0, 15).map(function(r) {
+    return '- [' + (r.severity||'').toUpperCase() + '] ' + r.type + ' in ' + (r.district||r.location||'?') + ': "' + r.title + '"';
+  }).join('\n') || 'No reports.';
+
+  var prompt = 'You are a disaster coordination AI for Bangladesh. Respond ONLY with a valid JSON object, no markdown, no extra text.\n' +
+    'Current time: ' + now + '\n\nField Reports:\n' + rptLines + '\n\n' +
+    'Return this exact JSON structure with all text fields in Bangla:\n' +
+    '{"title":"পরিস্থিতি বিবরণী","alert_level":"CRITICAL|HIGH|MODERATE|LOW",' +
+    '"summary":"2-3 sentence overview in Bangla",' +
+    '"paragraph_1":{"heading":"বর্তমান পরিস্থিতি","body":"1-2 sentences in Bangla"},' +
+    '"paragraph_2":{"heading":"ঝুঁকিপূর্ণ এলাকা","body":"1-2 sentences in Bangla"},' +
+    '"paragraph_3":{"heading":"করণীয়","body":"1-2 sentences in Bangla"},' +
+    '"key_actions":["action 1 in Bangla","action 2","action 3"],' +
+    '"priority_districts":["district1","district2","district3"]}';
+
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (window.GROQ_KEY || '')
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1500,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'You are a disaster coordination assistant. Always respond with a single valid JSON object only. No markdown. No extra text. Keep all body fields under 50 words.' },
+        { role: 'user', content: prompt }
+      ]
     })
-    .catch(function(e) {
-      document.getElementById('bp-loading').style.display = 'none';
-      document.getElementById('bp-content').style.display = 'block';
-      document.getElementById('bp-content').innerHTML =
-        '<div style="text-align:center;padding:32px;color:#c8192b">' +
-        '<div style="font-size:32px;margin-bottom:10px">⚠</div>' +
-        '<div style="font-weight:700;margin-bottom:6px">বিবরণী তৈরি ব্যর্থ হয়েছে</div>' +
-        '<div style="font-size:13px;color:#64748b">' + e.message + '</div>' +
-        '<div style="font-size:12px;color:#94a3b8;margin-top:8px">GROQ_API_KEY পরিবেশ ভেরিয়েবলে সেট আছে কিনা নিশ্চিত করুন</div>' +
-        '</div>';
-    });
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) throw new Error(d.error.message || 'Groq API error');
+    var text = d.choices[0].message.content.replace(/```json|```/g, '').trim();
+    var briefing = JSON.parse(text);
+    briefing.generated_at = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
+    briefing.data_summary = { crowd_reports: reports.length, gdacs_events: 0 };
+    lastBriefing = briefing;
+    renderBriefing(briefing);
+  })
+  .catch(function(e) {
+    document.getElementById('bp-loading').style.display = 'none';
+    document.getElementById('bp-content').style.display = 'block';
+    document.getElementById('bp-content').innerHTML =
+      '<div style="text-align:center;padding:32px;color:#c8192b">' +
+      '<div style="font-size:32px;margin-bottom:10px">⚠</div>' +
+      '<div style="font-weight:700;margin-bottom:6px">বিবরণী তৈরি ব্যর্থ হয়েছে</div>' +
+      '<div style="font-size:13px;color:#64748b">' + e.message + '</div>' +
+      '</div>';
+  });
 }
 
 function renderBriefing(b) {
@@ -2820,5 +2854,9 @@ function fetchAndDrawFloodExtent() {
   </div>
 </div>
 
+<!-- Groq key injected server-side -->
+<script>
+  window.GROQ_KEY = '%%GROQ_API_KEY%%';
+</script>
 </body>
 </html>

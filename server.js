@@ -92,7 +92,13 @@ setInterval(purgeExpiredRescuers, 30 * 60 * 1000);
 // ── Page routes (must come BEFORE static middleware so / is not
 //    intercepted by index.html being served as the default file) ──
 app.get('/',               (_, res) => res.sendFile(path.join(__dirname, 'risk-map.html')));
-app.get('/reporter',       (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/reporter', (_, res) => {
+  const fs = require('fs');
+  let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  html = html.replace('%%GROQ_API_KEY%%', process.env.GROQ_API_KEY || '');
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
 app.get('/disasters',      (_, res) => res.sendFile(path.join(__dirname, 'disasters.html')));
 app.get('/live-disasters', (_, res) => res.sendFile(path.join(__dirname, 'live-disasters.html')));
 app.get('/risk-map',       (_, res) => res.sendFile(path.join(__dirname, 'risk-map.html')));
@@ -1058,15 +1064,8 @@ async function callGroq(prompt) {
 
   const body = JSON.stringify({
     model: 'llama-3.3-70b-versatile',
-    max_tokens: 3000,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a disaster coordination assistant for Bangladesh. Always respond with valid JSON only — no markdown, no preamble. Keep each paragraph body under 60 words. Keep key_actions items under 15 words each.',
-      },
-      { role: 'user', content: prompt },
-    ],
+    max_tokens: 1200,
+    messages: [{ role: 'user', content: prompt }],
   });
 
   return new Promise((resolve, reject) => {
@@ -1090,15 +1089,8 @@ async function callGroq(prompt) {
           if (json.error) return reject(new Error(json.error.message || 'Groq API error'));
           const text = json.choices?.[0]?.message?.content || '';
           // Strip markdown fences if present
-          const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim();
-          try {
-            resolve(JSON.parse(clean));
-          } catch(parseErr) {
-            console.error('[Groq] Parse failed. Raw response length:', clean.length);
-            console.error('[Groq] First 300 chars:', clean.slice(0, 300));
-            console.error('[Groq] Last 300 chars:', clean.slice(-300));
-            reject(new Error('Failed to parse Groq response: ' + parseErr.message));
-          }
+          const clean = text.replace(/```json|```/g, '').trim();
+          resolve(JSON.parse(clean));
         } catch(e) {
           reject(new Error('Failed to parse Groq response: ' + e.message));
         }
