@@ -96,7 +96,7 @@ app.get('/reporter', (_, res) => {
   const fs = require('fs');
   let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   html = html.replace('%%GROQ_API_KEY%%', process.env.GROQ_API_KEY || '');
-  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
 app.get('/disasters',      (_, res) => res.sendFile(path.join(__dirname, 'disasters.html')));
