@@ -95,68 +95,79 @@ app.get('/',               (_, res) => res.sendFile(path.join(__dirname, 'risk-m
 app.get('/reporter', (_, res) => {
   const fs = require('fs');
   let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-  const groqKey = process.env.GROQ_API_KEY || '';
-
-  // Inject override script just before </body>
-  // This replaces generateBriefing entirely — works even if index.html is old
-  const injectScript = `
-<script>
-window.GROQ_KEY = ${JSON.stringify(groqKey)};
-// Override generateBriefing to call Groq directly from browser
-generateBriefing = function() {
-  document.getElementById('bp-loading').style.display = 'flex';
-  document.getElementById('bp-content').style.display = 'none';
-  document.getElementById('bp-footer').style.display  = 'none';
-  document.getElementById('bp-sub').textContent = 'Analysing...';
-  var key = window.GROQ_KEY || '';
-  if (!key) {
-    document.getElementById('bp-loading').style.display = 'none';
-    document.getElementById('bp-content').style.display = 'block';
-    document.getElementById('bp-content').innerHTML = '<div style="text-align:center;padding:32px;color:#c8192b"><div style="font-size:32px">!</div><div style="font-weight:700;margin-top:8px">GROQ_KEY not set in Railway</div></div>';
-    return;
-  }
-  var rpts = (typeof reports !== 'undefined' ? reports : []).slice(0,6).map(function(r){
-    return (r.severity||'med').toUpperCase()+' '+(r.type||'other')+' in '+(r.district||'BD')+': '+(r.title||'').slice(0,40);
-  }).join(' | ') || 'No reports.';
-  fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body: JSON.stringify({
-      model:'llama-3.3-70b-versatile',
-      max_tokens:150,
-      response_format:{type:'json_object'},
-      messages:[
-        {role:'system',content:'Return ONLY a JSON object. No markdown. Max 8 words per value.'},
-        {role:'user',content:'Reports: '+rpts+'\\nReturn: {"level":"HIGH","summary":"8 words max","situation":"8 words max","areas":"8 words max","actions":["5 words","5 words","5 words"]}'}
-      ]
+  const key = JSON.stringify(process.env.GROQ_API_KEY || '');
+  const inject = `<script>
+(function() {
+  var K = ${key};
+  window.generateBriefing = function() {
+    var el = {
+      load: document.getElementById('bp-loading'),
+      body: document.getElementById('bp-content'),
+      foot: document.getElementById('bp-footer'),
+      sub:  document.getElementById('bp-sub')
+    };
+    el.load.style.display = 'flex';
+    el.body.style.display = 'none';
+    el.foot.style.display = 'none';
+    el.sub.textContent = 'Analysing...';
+    if (!K) {
+      el.load.style.display = 'none';
+      el.body.style.display = 'block';
+      el.body.innerHTML = '<div style="text-align:center;padding:40px;color:#c8192b"><b>GROQ_API_KEY not set in Railway</b></div>';
+      return;
+    }
+    var rpts = (typeof reports !== 'undefined' ? reports : []).slice(0, 5).map(function(r) {
+      return (r.severity||'med') + ' ' + (r.type||'other') + ' in ' + (r.district||'BD') + ': ' + (r.title||'').slice(0,40);
+    }).join('; ') || 'No reports.';
+    fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + K },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 120,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'Return ONLY a JSON object. No markdown. Every string value 6 words or fewer.' },
+          { role: 'user', content: 'Reports: ' + rpts + '\\nReturn: {"level":"HIGH","summary":"6 words","situation":"6 words","areas":"6 words","actions":["4 words","4 words","4 words"]}' }
+        ]
+      })
     })
-  })
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d.error) throw new Error(d.error.message);
-    var b = JSON.parse((d.choices[0].message.content||'{}').replace(/\`\`\`json|\`\`\`/g,'').trim());
-    renderBriefing({
-      alert_level:(b.level||'MODERATE').toUpperCase(),
-      title:'পরিস্থিতি বিবরণী',
-      summary:b.summary||'',
-      paragraph_1:{heading:'বর্তমান পরিস্থিতি',body:b.situation||''},
-      paragraph_2:{heading:'ঝুঁকিপূর্ণ এলাকা',body:b.areas||''},
-      paragraph_3:{heading:'করণীয়',body:(b.actions||[]).join(' | ')},
-      key_actions:b.actions||[],
-      priority_districts:[],
-      generated_at:new Date().toLocaleString('en-BD',{timeZone:'Asia/Dhaka'}),
-      data_summary:{crowd_reports:(typeof reports!=='undefined'?reports.length:0),gdacs_events:0}
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) throw new Error(d.error.message);
+      var b = JSON.parse((d.choices[0].message.content || '{}').replace(/\`\`\`json|\`\`\`/g, '').trim());
+      if (typeof renderBriefing === 'function') {
+        renderBriefing({
+          alert_level: (b.level || 'MODERATE').toUpperCase(),
+          title: 'পরিস্থিতি বিবরণী',
+          summary: b.summary || '',
+          paragraph_1: { heading: 'বর্তমান পরিস্থিতি', body: b.situation || '' },
+          paragraph_2: { heading: 'ঝুঁকিপূর্ণ এলাকা', body: b.areas || '' },
+          paragraph_3: { heading: 'করণীয়', body: (b.actions || []).join(' | ') },
+          key_actions: b.actions || [],
+          priority_districts: [],
+          generated_at: new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' }),
+          data_summary: { crowd_reports: (typeof reports !== 'undefined' ? reports.length : 0), gdacs_events: 0 }
+        });
+      }
+    })
+    .catch(function(e) {
+      el.load.style.display = 'none';
+      el.body.style.display = 'block';
+      el.body.innerHTML = '<div style="text-align:center;padding:40px;color:#c8192b"><div style="font-size:36px">⚠</div><b style="display:block;margin-top:8px">' + e.message + '</b></div>';
     });
-  })
-  .catch(function(e){
-    document.getElementById('bp-loading').style.display='none';
-    document.getElementById('bp-content').style.display='block';
-    document.getElementById('bp-content').innerHTML='<div style="text-align:center;padding:32px;color:#c8192b"><div style="font-size:32px">!</div><div style="font-weight:700;margin-top:8px">'+e.message+'</div></div>';
-  });
-};
+  };
+  // Also override the old one in case it was already defined
+  if (typeof openBriefing === 'function') {
+    var _orig = openBriefing;
+    window.openBriefing = function() {
+      document.getElementById('briefing-overlay').classList.add('show');
+      window.generateBriefing();
+    };
+  }
+})();
 </script>`;
-
-  html = html.replace('</body>', injectScript + '\n</body>');
+  html = html.replace('</body>', inject + '\n</body>');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
@@ -1279,8 +1290,7 @@ app.post('/api/briefing', async (req, res) => {
       rescuers: Object.values(rescuers),
     };
 
-    console.log('[Briefing] Generating AI situation briefing...');
-    const briefing = await callGroq(buildBriefingPrompt(data));
+    throw new Error('Server-side briefing disabled — handled by browser');
     briefing.generated_at = new Date().toLocaleString('en-BD', { timeZone:'Asia/Dhaka' });
     briefing.data_summary = {
       crowd_reports:  data.reports.length,
