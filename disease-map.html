@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RescueAI &mdash; Disease Outbreak Risk Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#080c14;
+  --surface:#0d1220;
+  --s2:#111827;
+  --s3:#1a2235;
+  --border:#1e2d45;
+  --border2:#243452;
+  --text:#e8edf5;
+  --sub:#8fa3c0;
+  --muted:#4d6180;
+  --accent:#2563eb;
+  --accent2:#3b82f6;
+  --bd-g:#006a4e;
+  --bd-r:#d42638;
+  --sh:0 1px 4px rgba(0,0,0,.5);
+  --sh-md:0 4px 24px rgba(0,0,0,.6);
+  --r:7px;--panel:370px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+
+/* HEADER */
+.hdr{flex-shrink:0;height:52px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:0 1px 0 var(--border),0 2px 12px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:300;}
+.hdr-left{display:flex;align-items:center;gap:9px;}
+.flag{width:26px;height:18px;border-radius:2px;overflow:hidden;border:1px solid var(--border);display:flex;flex-shrink:0;}
+.flag-g{flex:1;background:var(--bd-g);display:flex;align-items:center;justify-content:center;}
+.flag-r{width:9px;height:9px;border-radius:50%;background:var(--bd-r);}
+.brand{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text);}
+.brand em{font-style:normal;color:var(--accent2);}
+.hdiv{width:1px;height:16px;background:var(--border);margin:0 10px;}
+.page-sub{font-size:12px;font-weight:600;color:var(--muted);}
+.hdr-right{display:flex;gap:7px;align-items:center;}
+.hbtn{padding:6px 13px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.hbtn:hover{background:var(--s2);color:var(--text);border-color:var(--border2);}
+
+/* LAYOUT */
+.main{flex:1;display:flex;overflow:hidden;}
+.map-col{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+
+/* Leaflet dark overrides */
+.leaflet-container{background:#080c14 !important;}
+.leaflet-control-zoom{border:1px solid var(--border) !important;border-radius:var(--r) !important;overflow:hidden;}
+.leaflet-control-zoom a{background:var(--surface) !important;color:var(--sub) !important;border:none !important;border-bottom:1px solid var(--border) !important;box-shadow:none !important;width:28px;height:28px;line-height:28px;}
+.leaflet-control-zoom a:hover{background:var(--s3) !important;color:var(--text) !important;}
+.leaflet-control-zoom-out{border-bottom:none !important;}
+.leaflet-control-attribution{background:rgba(8,12,20,.82) !important;color:var(--muted) !important;font-size:9px !important;}
+.leaflet-popup-content-wrapper{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--border) !important;border-radius:10px !important;box-shadow:var(--sh-md) !important;}
+.leaflet-popup-tip{background:var(--surface) !important;}
+.leaflet-popup-close-button{color:var(--muted) !important;}
+/* Hide default tooltip background so our custom style shows */
+.leaflet-tooltip{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 !important;}
+
+/* DISEASE TABS */
+.disease-tabs{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:500;display:flex;background:rgba(13,18,32,.94);border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);}
+.dtab{padding:6px 16px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.dtab:hover{color:var(--text);}
+.dtab.on{color:#fff;}
+.dtab.on[data-d="cholera"]  {background:#b91c1c;}
+.dtab.on[data-d="diarrhea"] {background:#c2410c;}
+.dtab.on[data-d="typhoid"]  {background:#a16207;}
+.dtab.on[data-d="hepatitis"]{background:#6d28d9;}
+.dtab:not(:last-child){border-right:1px solid var(--border);}
+
+/* MAP OVERLAYS */
+.map-badge{position:absolute;top:12px;left:12px;z-index:500;background:rgba(13,18,32,.9);border:1px solid var(--border);border-radius:20px;padding:5px 13px;font-size:11px;font-weight:600;color:var(--sub);backdrop-filter:blur(6px);pointer-events:none;}
+.flood-badge{position:absolute;top:48px;left:12px;z-index:499;background:rgba(37,99,235,.88);border:1px solid rgba(59,130,246,.4);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:600;color:#fff;backdrop-filter:blur(4px);pointer-events:none;display:none;box-shadow:0 0 12px rgba(37,99,235,.3);}
+.map-note{position:absolute;top:50px;right:12px;z-index:500;background:rgba(13,18,32,.82);border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:10px;color:var(--muted);pointer-events:none;backdrop-filter:blur(4px);}
+
+/* LEGEND */
+.legend{position:absolute;bottom:18px;right:12px;z-index:500;background:rgba(13,18,32,.95);border:1px solid var(--border);border-radius:var(--r);padding:12px 15px;box-shadow:var(--sh-md);min-width:178px;backdrop-filter:blur(8px);}
+.leg-title{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px;color:var(--sub);}
+.leg-dot{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
+.leg-sep{border-top:1px solid var(--border);margin:8px 0;}
+.leg-note{font-size:9.5px;color:var(--muted);line-height:1.45;}
+.leg-dim{color:var(--muted);}
+
+/* SOURCE TAG */
+.source-tag{position:absolute;bottom:18px;left:12px;z-index:500;background:rgba(13,18,32,.9);border:1px solid var(--border);border-radius:5px;padding:6px 11px;font-size:10px;color:var(--muted);pointer-events:none;max-width:290px;line-height:1.55;backdrop-filter:blur(6px);}
+.source-tag strong{color:var(--sub);}
+
+/* PANEL */
+.panel{width:var(--panel);flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-hdr{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.panel-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.panel-sub{font-size:11px;color:var(--muted);line-height:1.5;}
+.data-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}
+.data-badge.research{color:var(--accent2);background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.25);}
+.blink{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.3s steps(1) infinite;}
+@keyframes blink{50%{opacity:.15;}}
+
+/* DISEASE CARD */
+.dis-card{margin:10px 14px 4px;padding:11px 13px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);}
+.dis-card-title{font-size:11px;font-weight:700;letter-spacing:.3px;margin-bottom:4px;color:var(--text);}
+.dis-card-body{font-size:11px;color:var(--sub);line-height:1.55;}
+.dis-card-src{font-size:9.5px;color:var(--muted);margin-top:5px;}
+
+/* SEARCH */
+.search-wrap{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;}
+.search-wrap .si{position:absolute;left:24px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.4;}
+.search-input{width:100%;padding:8px 12px 8px 34px;background:var(--s2);border:1.5px solid var(--border);border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;}
+.search-input::placeholder{color:var(--muted);}
+.search-input:focus{border-color:var(--accent);background:var(--s3);}
+
+/* SECTION HEADER */
+.sec-hdr{padding:7px 16px 5px;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);background:var(--s2);border-bottom:1px solid var(--border);}
+
+/* SCROLL */
+.pscroll{flex:1;overflow-y:auto;}
+.pscroll::-webkit-scrollbar{width:3px;}
+.pscroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* DISTRICT LIST */
+.di{padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;align-items:center;gap:9px;}
+.di:hover{background:var(--s2);}
+.di-rank{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);width:20px;flex-shrink:0;}
+.di-info{flex:1;min-width:0;}
+.di-name{font-size:13px;font-weight:600;color:var(--text);}
+.di-div{font-size:10px;color:var(--muted);}
+.di-bw{width:60px;}
+.di-bg{height:5px;background:var(--s3);border-radius:3px;overflow:hidden;}
+.di-fill{height:100%;border-radius:3px;}
+.di-score{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:44px;text-align:right;}
+.di-flag{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;display:inline-block;}
+.di-flag.who{background:rgba(37,99,235,.18);color:var(--accent2);}
+.di-flag.flood{background:rgba(194,65,12,.2);color:#fb923c;}
+.di-flag.low{background:rgba(77,97,128,.12);color:var(--muted);}
+
+/* RELIEFWEB FEED */
+.rw-feed{margin:0;padding:0;}
+.rw-item{padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.rw-item:hover{background:var(--s2);}
+.rw-date{font-size:9px;font-family:'DM Mono',monospace;color:var(--muted);margin-bottom:2px;}
+.rw-title{font-size:11px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:3px;}
+.rw-src{font-size:9.5px;color:var(--muted);}
+.rw-loading{padding:18px 16px;font-size:11px;color:var(--muted);text-align:center;}
+
+/* DETAIL PANEL */
+.detail{margin:10px 14px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:none;}
+.detail.show{display:block;}
+.detail-hdr{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.detail-ico{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.detail-name{font-size:14px;font-weight:700;color:var(--text);}
+.detail-meta{font-size:11px;color:var(--muted);margin-top:1px;}
+.detail-body{padding:11px 14px;display:flex;flex-direction:column;gap:8px;}
+.drow-lbl{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.drow-bar{display:flex;align-items:center;gap:7px;}
+.drow-bg{flex:1;height:7px;background:var(--s3);border-radius:4px;overflow:hidden;}
+.drow-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.drow-val{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:44px;}
+.detail-sources{padding:0 14px 11px;font-size:10px;color:var(--muted);line-height:1.55;}
+.detail-sources strong{color:var(--sub);}
+.detail-close{margin:0 14px 11px;padding:7px;background:var(--s3);border:1px solid var(--border);color:var(--sub);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;width:calc(100% - 28px);transition:all .15s;}
+.detail-close:hover{background:var(--border);color:var(--text);}
+
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.8);opacity:0}}
+
+@media(max-width:820px){
+  .main{flex-direction:column;}
+  .panel{width:100%;height:44vh;border-left:none;border-top:1px solid var(--border);}
+  .dtab{padding:5px 10px;font-size:10px;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="flag">
+      <div class="flag-g"><div class="flag-r"></div></div>
+    </div>
+    <span class="brand">Rescue<em>AI</em></span>
+    <div class="hdiv"></div>
+    <span class="page-sub">🦠 Disease Outbreak Risk</span>
+  </div>
+  <div class="hdr-right">
+    <a href="/risk-map" class="hbtn">← Flood Risk Map</a>
+    <a href="/disasters" class="hbtn">Live Feed</a>
+    <a href="/methodology" class="hbtn">Methodology</a>
+  </div>
+</header>
+
+<div class="main">
+  <div class="map-col">
+    <div id="map"></div>
+
+    <div class="map-badge">🇧🇩 Bangladesh · Medium+ risk shown on map</div>
+    <div class="flood-badge" id="flood-badge">🌊 Active flood data integrated</div>
+    <div class="map-note">Low &amp; minimal districts: panel only</div>
+
+    <div class="disease-tabs">
+      <button class="dtab on" data-d="cholera"   onclick="setDisease('cholera',this)"  >🔵 Cholera</button>
+      <button class="dtab"     data-d="diarrhea"  onclick="setDisease('diarrhea',this)" >🟠 Diarrhea</button>
+      <button class="dtab"     data-d="typhoid"   onclick="setDisease('typhoid',this)"  >🟡 Typhoid</button>
+      <button class="dtab"     data-d="hepatitis" onclick="setDisease('hepatitis',this)">🟣 Hepatitis A</button>
+    </div>
+
+    <div class="legend">
+      <div class="leg-title">Outbreak Risk</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#b91c1c"></div>Critical — WHO/field confirmed</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#ea580c"></div>High — documented hotspot</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#ca8a04"></div>Medium — historically at risk</div>
+      <div class="leg-sep"></div>
+      <div class="leg-row leg-dim"><div class="leg-dot" style="background:var(--border2)"></div>Low / Minimal — panel only</div>
+      <div class="leg-sep"></div>
+      <div class="leg-note">Not a real-time clinical forecast.<br>WHO · Oxfam · OCHA · PMC · PLOS ONE.</div>
+    </div>
+
+    <div class="source-tag">
+      <strong>Sources:</strong> WHO Bangladesh (Nov 2024) · Oxfam (Sep 2024) ·
+      OCHA (Aug 2024) · The Lancet · PMC · PLOS ONE (2025) · icddr,b / IEDCR
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-title">
+        <span id="panel-disease-title">Cholera Risk — Bangladesh</span>
+        <span class="data-badge research"><span class="blink"></span>Research-backed</span>
+      </div>
+      <div class="panel-sub">All 64 districts ranked below. Map shows medium+ only. Click any district for full breakdown.</div>
+    </div>
+
+    <div class="dis-card">
+      <div class="dis-card-title" id="dis-card-title">🔵 Cholera in Post-Flood Bangladesh</div>
+      <div class="dis-card-body" id="dis-card-body">Following the August 2024 floods, WHO teams visiting Feni, Noakhali, Lakshmipur and Cumilla documented a notable increase in waterborne disease outbreaks. Oxfam found 100% of sanitation facilities destroyed, calling it a "health ticking bomb."</div>
+      <div class="dis-card-src" id="dis-card-src">WHO Bangladesh Nov 2024 · Oxfam Field Assessment Sep 2024</div>
+    </div>
+
+    <div class="detail" id="detail">
+      <div class="detail-hdr">
+        <div class="detail-ico" id="d-ico">🦠</div>
+        <div>
+          <div class="detail-name" id="d-name">District</div>
+          <div class="detail-meta" id="d-meta">—</div>
+        </div>
+      </div>
+      <div class="detail-body" id="d-body"></div>
+      <div class="detail-sources" id="d-sources"></div>
+      <button class="detail-close" onclick="closeDetail()">✕ Close</button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="si">🔍</span>
+      <input class="search-input" id="search" placeholder="Search all 64 districts…" oninput="filterList(this.value)">
+    </div>
+
+    <div class="sec-hdr">All Districts — ranked by risk level</div>
+    <div class="pscroll">
+      <div id="district-list"></div>
+      <div class="sec-hdr" style="margin-top:4px;">🌐 Latest Field Reports</div>
+      <div class="rw-loading" id="rw-loading">Fetching situation reports…</div>
+      <div class="rw-feed" id="rw-feed"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── DISTRICT DATA ─────────────────────────────────────────────────────────
+// r = [cholera, diarrhea, typhoid, hepatitisA]  scale 0–4
+// 4=Critical 3=High 2=Medium 1=Low 0=Minimal
+const DISTRICTS = [
+  {n:'Feni',           dv:'Chattogram', lt:23.02, lg:91.40, r:[4,4,3,4], src:['WHO field visit Sep 2024','Oxfam: 100% sanitation destroyed, "health ticking bomb"','OCHA Sitrep Aug 2024']},
+  {n:'Noakhali',       dv:'Chattogram', lt:22.87, lg:91.10, r:[4,4,3,4], src:['WHO field visit Sep 2024','Oxfam rapid assessment Sep 2024','OCHA: >50% areas unreachable by Aug 30 2024']},
+  {n:'Cumilla',        dv:'Chattogram', lt:23.46, lg:91.18, r:[3,4,3,3], src:['WHO field visit Sep 2024','OCHA Sitrep Aug 2024 — severe impact','The Lancet Oct 2024']},
+  {n:"Cox's Bazar",    dv:'Chattogram', lt:21.44, lg:92.01, r:[4,3,2,3], src:['icddr,b / IEDCR: endemic cholera zone — continuous transmission','WHO CXB Health Sitrep Jun 2024','909,282 FDMN at heightened risk']},
+  {n:'Lakshmipur',     dv:'Chattogram', lt:22.94, lg:90.84, r:[3,4,3,3], src:['WHO field visit Sep 2024','OCHA Sitrep — most affected districts list']},
+  {n:'Sylhet',         dv:'Sylhet',     lt:24.90, lg:91.87, r:[3,3,2,2], src:['ReliefWeb 2024: 75% of Sylhet flooded Jun & Aug 2024','ECHO Jul 2024 situation report']},
+  {n:'Sunamganj',      dv:'Sylhet',     lt:25.07, lg:91.40, r:[3,3,2,2], src:['ReliefWeb 2024: flood affected 2.5M in Sylhet division','Recurrent haor flooding — historically high risk']},
+  {n:'Satkhira',       dv:'Khulna',     lt:22.72, lg:89.07, r:[3,2,2,3], src:['Am J Trop Med Hyg 2023: seasonal cholera hotspot (coastal)','WASH behavioral study site']},
+  {n:'Chattogram',     dv:'Chattogram', lt:22.35, lg:91.83, r:[3,3,2,2], src:['OCHA Aug 2024 — named affected district','PMC Nov 2024: southeastern districts flagged']},
+  {n:'Sirajganj',      dv:'Rajshahi',   lt:24.45, lg:89.70, r:[3,3,2,2], src:['Am J Trop Med Hyg 2023: inland cholera site (WASH study)','Char areas chronically flood-prone']},
+  {n:'Brahmanbaria',   dv:'Chattogram', lt:23.96, lg:91.11, r:[2,3,2,2], src:['ReliefWeb Aug 2024 — flood affected district']},
+  {n:'Habiganj',       dv:'Sylhet',     lt:24.37, lg:91.41, r:[2,3,2,2], src:['ReliefWeb Jul & Aug 2024 — flood events']},
+  {n:'Moulvibazar',    dv:'Sylhet',     lt:24.48, lg:91.78, r:[2,3,2,2], src:['ECHO Jul 2024 — worst-affected district list']},
+  {n:'Kishoreganj',    dv:'Mymensingh', lt:24.44, lg:90.78, r:[2,3,2,2], src:['Haor region — flood-vulnerable','PLOS ONE 2025 disease distribution data']},
+  {n:'Netrokona',      dv:'Mymensingh', lt:24.87, lg:90.73, r:[2,3,2,2], src:['ECHO Jul 2024 — worst-affected district','Haor region endemic vulnerability']},
+  {n:'Dhaka',          dv:'Dhaka',      lt:23.72, lg:90.41, r:[2,3,3,1], src:['Am J Trop Med Hyg 2023: Dhaka slums documented cholera site','PLOS ONE 2025: high diarrhea and typhoid burden']},
+  {n:'Khagrachhari',   dv:'Chattogram', lt:23.13, lg:91.98, r:[2,2,2,2], src:['OCHA Aug 2024 — flood event named district','PMC: southeastern hill districts']},
+  {n:'Rangamati',      dv:'Chattogram', lt:22.65, lg:92.18, r:[2,2,2,2], src:['PMC Nov 2024 — southeastern districts']},
+  {n:'Bandarban',      dv:'Chattogram', lt:22.19, lg:92.22, r:[2,2,2,2], src:['PMC Nov 2024 — southeastern districts']},
+  {n:'Tangail',        dv:'Dhaka',      lt:24.25, lg:89.92, r:[2,2,1,1], src:['ECHO Jul 2024 — worst-affected district list']},
+  {n:'Bogura',         dv:'Rajshahi',   lt:24.85, lg:89.37, r:[2,2,2,1], src:['ECHO Jul 2024 — affected district list']},
+  {n:'Rangpur',        dv:'Rangpur',    lt:25.74, lg:89.25, r:[2,2,2,1], src:['ECHO Jul 2024 — worst-affected district list']},
+  {n:'Gaibandha',      dv:'Rangpur',    lt:25.33, lg:89.54, r:[2,2,2,1], src:['Flood-prone char district — PLOS ONE 2025']},
+  {n:'Kurigram',       dv:'Rangpur',    lt:25.81, lg:89.64, r:[2,2,2,1], src:['Brahmaputra/Teesta char — chronically flood-hit']},
+  {n:'Lalmonirhat',    dv:'Rangpur',    lt:25.92, lg:89.45, r:[2,2,2,1], src:['Teesta riverine district — PLOS ONE 2025']},
+  {n:'Barisal',        dv:'Barisal',    lt:22.70, lg:90.37, r:[2,2,2,2], src:['Coastal delta — PLOS ONE 2025']},
+  {n:'Bhola',          dv:'Barisal',    lt:22.36, lg:90.71, r:[2,2,2,2], src:['Island district — extreme flood/cyclone exposure']},
+  {n:'Patuakhali',     dv:'Barisal',    lt:22.36, lg:90.33, r:[2,2,2,2], src:['Coastal delta vulnerability']},
+  {n:'Barguna',        dv:'Barisal',    lt:22.16, lg:89.99, r:[2,2,2,2], src:['Coastal delta district']},
+  {n:'Khulna',         dv:'Khulna',     lt:22.84, lg:89.54, r:[2,2,2,2], src:['Coastal, saltwater intrusion risk — PLOS ONE 2025']},
+  {n:'Bagerhat',       dv:'Khulna',     lt:22.66, lg:89.79, r:[2,2,2,2], src:['Sundarbans coastal — flood and cyclone exposure']},
+  {n:'Mymensingh',     dv:'Mymensingh', lt:24.74, lg:90.41, r:[2,2,2,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Pabna',          dv:'Rajshahi',   lt:24.01, lg:89.24, r:[2,2,2,1], src:['Padma riverine — flood exposure']},
+  {n:'Chandpur',       dv:'Chattogram', lt:23.23, lg:90.65, r:[1,2,2,1], src:['Meghna delta district']},
+  {n:'Gazipur',        dv:'Dhaka',      lt:24.00, lg:90.43, r:[1,2,2,1], src:['Peri-urban WASH risk — PLOS ONE 2025']},
+  {n:'Narayanganj',    dv:'Dhaka',      lt:23.62, lg:90.50, r:[1,2,2,1], src:['Dense river-dependent urban district']},
+  {n:'Manikganj',      dv:'Dhaka',      lt:23.86, lg:89.97, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Munshiganj',     dv:'Dhaka',      lt:23.55, lg:90.53, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Faridpur',       dv:'Dhaka',      lt:23.60, lg:89.84, r:[1,2,2,1], src:['River delta vulnerability']},
+  {n:'Shariatpur',     dv:'Dhaka',      lt:23.24, lg:90.43, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Gopalganj',      dv:'Dhaka',      lt:23.00, lg:89.83, r:[1,2,1,1], src:['Low-lying, flood-prone district']},
+  {n:'Madaripur',      dv:'Dhaka',      lt:23.16, lg:90.20, r:[1,2,1,1], src:['Delta district']},
+  {n:'Rajbari',        dv:'Dhaka',      lt:23.76, lg:89.64, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Narsingdi',      dv:'Dhaka',      lt:23.93, lg:90.72, r:[1,2,2,1], src:['Flood corridor district']},
+  {n:'Sherpur',        dv:'Mymensingh', lt:25.02, lg:90.02, r:[1,2,1,1], src:['Flood-prone border district']},
+  {n:'Jamalpur',       dv:'Mymensingh', lt:24.94, lg:89.94, r:[1,2,1,1], src:['Brahmaputra riverine vulnerability']},
+  {n:'Pirojpur',       dv:'Barisal',    lt:22.58, lg:89.97, r:[1,2,1,1], src:['Sundarbans fringe district']},
+  {n:'Jhalokathi',     dv:'Barisal',    lt:22.64, lg:90.20, r:[1,2,1,1], src:['Delta district']},
+  {n:'Narail',         dv:'Khulna',     lt:23.17, lg:89.50, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Magura',         dv:'Khulna',     lt:23.49, lg:89.42, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Jashore',        dv:'Khulna',     lt:23.17, lg:89.21, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Jhenaidah',      dv:'Khulna',     lt:23.54, lg:89.17, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Kushtia',        dv:'Khulna',     lt:23.90, lg:89.12, r:[1,2,2,1], src:['River-dependent, higher typhoid burden — PLOS ONE 2025']},
+  {n:'Chuadanga',      dv:'Khulna',     lt:23.64, lg:88.84, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Meherpur',       dv:'Khulna',     lt:23.76, lg:88.63, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Rajshahi',       dv:'Rajshahi',   lt:24.37, lg:88.60, r:[1,2,2,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Natore',         dv:'Rajshahi',   lt:24.42, lg:88.99, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Naogaon',        dv:'Rajshahi',   lt:24.79, lg:88.94, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Chapai Nawabganj',dv:'Rajshahi',  lt:24.60, lg:88.28, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Joypurhat',      dv:'Rajshahi',   lt:25.10, lg:89.03, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Nilphamari',     dv:'Rangpur',    lt:25.93, lg:88.86, r:[1,2,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Dinajpur',       dv:'Rangpur',    lt:25.63, lg:88.63, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Thakurgaon',     dv:'Rangpur',    lt:26.04, lg:88.46, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+  {n:'Panchagarh',     dv:'Rangpur',    lt:26.34, lg:88.55, r:[1,1,1,1], src:['PLOS ONE 2025 dataset']},
+];
+
+const DIST_MAP = {};
+DISTRICTS.forEach(d => { if(!DIST_MAP[d.n]) DIST_MAP[d.n] = d; });
+const DIST_LIST = Object.values(DIST_MAP);
+
+const DISEASE_META = {
+  cholera:  {label:'Cholera',    emoji:'🔵', desc:'Following the August 2024 floods, WHO teams visiting Feni, Noakhali, Lakshmipur and Cumilla documented a notable increase in waterborne disease outbreaks. Cox\'s Bazar is classified as an endemic cholera zone by icddr,b/IEDCR with continuous transmission.', src:'WHO Bangladesh Nov 2024 · icddr,b · Oxfam · OCHA · PLOS ONE 2025'},
+  diarrhea: {label:'Diarrhea',   emoji:'🟠', desc:'Diarrhea & gastroenteritis is the most prevalent climate-sensitive disease in Bangladesh — 28.51% of cases across 2017–2022 per PLOS ONE 2025 analysis of 2.8M health records. WHO documented a notable increase as floodwaters receded in August 2024.', src:'PLOS ONE 2025 (2.8M records, 2017–22) · WHO Bangladesh Nov 2024'},
+  typhoid:  {label:'Typhoid',    emoji:'🟡', desc:'Typhoid fever accounts for 3.27% of climate-sensitive disease cases in Bangladesh. Risk is concentrated in densely populated river-dependent districts with poor access to safe water. The Lancet flagged typhoid as a key concern after the 2024 floods.', src:'PLOS ONE 2025 · The Lancet Oct 2024 · WHO GHO'},
+  hepatitis:{label:'Hepatitis A',emoji:'🟣', desc:'Hepatitis A spreads through fecally-contaminated water. Risk spikes sharply when sanitation infrastructure is destroyed by flooding. PMC Nov 2024 flagged hepatitis A as a primary concern after the August 2024 Bangladesh flood events.', src:'PMC Nov 2024 · The Lancet Oct 2024 · Oxfam Sep 2024'},
+};
+
+function riskColor(l){return l>=4?'#b91c1c':l>=3?'#ea580c':l>=2?'#ca8a04':l>=1?'#15803d':'#374151';}
+function riskLabel(l){return l>=4?'Critical':l>=3?'High':l>=2?'Medium':l>=1?'Low':'Minimal';}
+function riskIdx(d){return {cholera:0,diarrhea:1,typhoid:2,hepatitis:3}[d]??0;}
+
+// ── MAP — dark Carto tile ──────────────────────────────────────────────────
+var map = L.map('map',{zoomControl:true,attributionControl:true}).setView([23.7,90.35],7);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+var currentDisease   = 'cholera';
+var floodBoosts      = {};
+var markerLayer      = L.layerGroup().addTo(map);
+var selectedDistrict = null;
+
+function setDisease(disease,btn){
+  currentDisease=disease;
+  document.querySelectorAll('.dtab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  var m=DISEASE_META[disease];
+  document.getElementById('panel-disease-title').textContent=m.label+' Risk — Bangladesh';
+  document.getElementById('dis-card-title').textContent=m.emoji+' '+m.label+' in Post-Flood Bangladesh';
+  document.getElementById('dis-card-body').textContent=m.desc;
+  document.getElementById('dis-card-src').textContent=m.src;
+  updateMarkers();
+  renderDistrictList('');
+  if(selectedDistrict)updateDetail();
+}
+
+// ── MARKERS — medium (2+) only ────────────────────────────────────────────
+function updateMarkers(){
+  markerLayer.clearLayers();
+  var di=riskIdx(currentDisease);
+  DIST_LIST.forEach(function(d){
+    var level=d.r[di];
+    var fboost=(floodBoosts[d.n]||{}).flood||0;
+    var ev=fboost>=1.0?Math.min(level+1,4):level;
+    if(ev<2)return; // ← skip low & minimal on map
+
+    var col=riskColor(ev);
+    var radius=12+ev*6;
+
+    var pulseHtml=ev>=4
+      ?'<div style="position:absolute;inset:-7px;border-radius:50%;border:2px solid '+col+';animation:pulse-ring 2s ease-out infinite;opacity:.45"></div>'
+      :'';
+
+    var icon=L.divIcon({
+      className:'',
+      html:'<div style="position:relative;width:'+(radius*2)+'px;height:'+(radius*2)+'px">'+
+        pulseHtml+
+        '<div style="width:'+(radius*2)+'px;height:'+(radius*2)+'px;border-radius:50%;background:'+col+';opacity:.82;border:2px solid rgba(255,255,255,.15);box-shadow:0 0 '+(ev*6)+'px '+col+'55;"></div>'+
+      '</div>',
+      iconSize:[radius*2,radius*2],iconAnchor:[radius,radius],popupAnchor:[0,-radius-4],
+    });
+
+    var floodNote=fboost>=1.0?'<br><span style="color:#60a5fa;font-size:10px;font-weight:700">🌊 Flood boost applied</span>':'';
+    var m=L.marker([d.lt,d.lg],{icon:icon}).addTo(markerLayer);
+    m.bindTooltip(
+      '<div style="font-family:DM Sans,sans-serif;min-width:168px;background:#0d1220;color:#e8edf5;border:1px solid #1e2d45;border-radius:9px;padding:10px 13px;box-shadow:0 4px 20px rgba(0,0,0,.6)">'+
+        '<div style="font-size:13px;font-weight:700;margin-bottom:2px">'+d.n+'</div>'+
+        '<div style="font-size:10px;color:#4d6180;margin-bottom:6px">'+d.dv+' Division</div>'+
+        '<div style="font-size:12px;font-weight:700;color:'+col+'">'+DISEASE_META[currentDisease].emoji+' '+riskLabel(ev)+' Risk</div>'+
+        floodNote+
+      '</div>',
+      {sticky:true,className:'dark-tip',opacity:1}
+    );
+    m.on('click',function(){showDetail(d);});
+  });
+}
+
+// ── DETAIL ────────────────────────────────────────────────────────────────
+function showDetail(d){
+  selectedDistrict=d;
+  updateDetail();
+  document.getElementById('detail').classList.add('show');
+}
+function updateDetail(){
+  if(!selectedDistrict)return;
+  var d=selectedDistrict;
+  var di=riskIdx(currentDisease);
+  var m=DISEASE_META[currentDisease];
+  var level=d.r[di];
+  var fboost=(floodBoosts[d.n]||{}).flood||0;
+  var ev=fboost>=1.0?Math.min(level+1,4):level;
+
+  document.getElementById('d-ico').textContent=m.emoji;
+  document.getElementById('d-ico').style.background=riskColor(ev)+'28';
+  document.getElementById('d-name').textContent=d.n+' District';
+  document.getElementById('d-meta').textContent=d.dv+' Division · '+riskLabel(ev)+' '+m.label+' Risk';
+
+  var body=document.getElementById('d-body');
+  body.innerHTML='';
+  ['cholera','diarrhea','typhoid','hepatitis'].forEach(function(dis,i){
+    var lv=d.r[i];
+    var ev2=fboost>=1.0?Math.min(lv+1,4):lv;
+    var col=riskColor(ev2);
+    var pct=Math.round((ev2/4)*100);
+    var el=document.createElement('div');
+    el.innerHTML='<div class="drow-lbl">'+['🔵','🟠','🟡','🟣'][i]+' '+DISEASE_META[dis].label+'</div>'+
+      '<div class="drow-bar"><div class="drow-bg"><div class="drow-fill" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+      '<div class="drow-val" style="color:'+col+'">'+riskLabel(ev2)+'</div></div>';
+    body.appendChild(el);
+  });
+
+  if(fboost>=1.0){
+    var fb=document.createElement('div');
+    fb.style='background:rgba(37,99,235,.14);border:1px solid rgba(59,130,246,.28);border-radius:5px;padding:7px 10px;font-size:10px;color:#60a5fa;margin-top:2px';
+    fb.textContent='🌊 Active flood detected — all disease risks elevated by one level.';
+    body.appendChild(fb);
+  }
+  document.getElementById('d-sources').innerHTML='<strong>Evidence sources:</strong><br>'+d.src.join('<br>');
+}
+function closeDetail(){selectedDistrict=null;document.getElementById('detail').classList.remove('show');}
+
+// ── DISTRICT LIST — all districts ─────────────────────────────────────────
+function renderDistrictList(query){
+  var di=riskIdx(currentDisease);
+  var sorted=DIST_LIST.slice().sort(function(a,b){return b.r[di]-a.r[di];});
+  if(query)sorted=sorted.filter(function(d){return d.n.toLowerCase().includes(query.toLowerCase());});
+  var html='';
+  sorted.forEach(function(d,i){
+    var level=d.r[di];
+    var fboost=(floodBoosts[d.n]||{}).flood||0;
+    var ev=fboost>=1.0?Math.min(level+1,4):level;
+    var col=riskColor(ev);
+    var pct=(ev/4)*100;
+    var whoTag =level>=3?'<span class="di-flag who">WHO</span>':'';
+    var floodTag=fboost>=1.0?'<span class="di-flag flood">🌊</span>':'';
+    var panelTag=ev<2?'<span class="di-flag low">panel only</span>':'';
+    html+='<div class="di" onclick="clickDistrictItem(\''+d.n+'\')">'+
+      '<div class="di-rank">'+(i+1)+'</div>'+
+      '<div class="di-info">'+
+        '<div class="di-name">'+d.n+whoTag+floodTag+panelTag+'</div>'+
+        '<div class="di-div">'+d.dv+' · '+riskLabel(ev)+'</div>'+
+      '</div>'+
+      '<div class="di-bw"><div class="di-bg"><div class="di-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>'+
+      '<div class="di-score" style="color:'+col+'">'+riskLabel(ev)+'</div>'+
+    '</div>';
+  });
+  document.getElementById('district-list').innerHTML=html;
+}
+function clickDistrictItem(name){
+  var d=DIST_MAP[name];if(!d)return;
+  showDetail(d);
+  var di=riskIdx(currentDisease);
+  var ev=(floodBoosts[d.n]||{}).flood>=1.0?Math.min(d.r[di]+1,4):d.r[di];
+  if(ev>=2)map.setView([d.lt,d.lg],9);
+}
+function filterList(val){renderDistrictList(val);}
+
+// ── RELIEFWEB ─────────────────────────────────────────────────────────────
+function loadReliefWeb(){
+  fetch('https://api.reliefweb.int/v2/reports?appname=rescueai&limit=8'+
+    '&fields[include][]=title&fields[include][]=date&fields[include][]=source'+
+    '&filter[operator]=AND'+
+    '&filter[conditions][0][field]=country.iso3&filter[conditions][0][value]=BGD'+
+    '&filter[conditions][1][field]=title&filter[conditions][1][value]=disease+OR+cholera+OR+diarrhea+OR+typhoid+OR+health+OR+WASH'+
+    '&sort[]=date:desc')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      document.getElementById('rw-loading').style.display='none';
+      var items=data.data||[];
+      if(!items.length){document.getElementById('rw-loading').style.display='block';document.getElementById('rw-loading').textContent='No recent reports found.';return;}
+      var html='';
+      items.forEach(function(item){
+        var f=item.fields||{};
+        var date=(f.date&&f.date.created)?f.date.created.slice(0,10):'';
+        var src=(f.source&&f.source[0])?f.source[0].name:'ReliefWeb';
+        html+='<div class="rw-item" onclick="window.open(\''+item.href+'\',\'_blank\')">'+
+          '<div class="rw-date">'+date+'</div>'+
+          '<div class="rw-title">'+f.title+'</div>'+
+          '<div class="rw-src">'+src+' · ReliefWeb</div>'+
+        '</div>';
+      });
+      document.getElementById('rw-feed').innerHTML=html;
+    })
+    .catch(function(){document.getElementById('rw-loading').textContent='Could not load field reports.';});
+}
+
+// ── PIPELINE ──────────────────────────────────────────────────────────────
+function loadFloodBoosts(){
+  fetch('/api/risk-pipeline')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(!data.boosts)return;
+      floodBoosts=data.boosts;
+      var n=Object.values(floodBoosts).filter(function(b){return b.flood>=1.0;}).length;
+      if(n>0){var el=document.getElementById('flood-badge');el.style.display='block';el.textContent='🌊 '+n+' districts with active flood — disease risk elevated';}
+      updateMarkers();renderDistrictList('');
+      if(selectedDistrict)updateDetail();
+    }).catch(function(){});
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+updateMarkers();
+renderDistrictList('');
+loadReliefWeb();
+setTimeout(loadFloodBoosts,800);
+setInterval(loadFloodBoosts,3*60*60*1000);
+</script>
+</body>
+</html>

@@ -166,6 +166,7 @@ app.get('/risk-map',       (_, res) => res.sendFile(path.join(__dirname, 'risk-m
 app.get('/volunteer',      (_, res) => res.sendFile(path.join(__dirname, 'volunteer.html')));
 app.get('/methodology',    (_, res) => res.sendFile(path.join(__dirname, 'methodology.html')));
 app.get('/dashboard',      (_, res) => res.sendFile(path.join(__dirname, 'dashboard.html')));
+app.get('/disease-map',    (_, res) => res.sendFile(path.join(__dirname, 'disease-map.html')));
 app.get('/simulation',     (_, res) => res.sendFile(path.join(__dirname, 'simulation.html')));
 
 // ── Static files (CSS, JS, images, etc.) ─────────────────────────
